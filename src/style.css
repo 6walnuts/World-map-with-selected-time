@@ -235,6 +235,15 @@ button {
   opacity: 0;
 }
 
+.province-label {
+  font-family: var(--serif);
+  font-style: italic;
+  fill: rgba(25, 16, 6, 0.62);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
 .paper {
   pointer-events: none;
   mix-blend-mode: multiply;
@@ -369,6 +378,28 @@ button {
   border-top: 1px solid var(--panel-edge);
   color: var(--gold-dim);
   font-size: 13px;
+}
+
+.controls {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+  line-height: 2.1;
+}
+
+kbd {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 6px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--panel-edge);
+  border-radius: 3px;
 }
 
 .shield {

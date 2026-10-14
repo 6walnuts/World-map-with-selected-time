@@ -82,7 +82,7 @@ async function loadBase() {
   base.provinces.forEach((f, i) => {
     const p = f.properties;
     p.index = i;
-    p.label = p.name_zh || p.name;
+    p.label = p.name_zh || p.name || p.admin || "";
     p.areaKm2 = d3.geoArea(f) * EARTH_RADIUS_KM ** 2;
     p.newWorld = d3.geoCentroid(f)[0] < NEW_WORLD_MAX_LON;
     p.bbox = d3.geoBounds(f);
@@ -193,6 +193,7 @@ const gGraticule = world.append("path").attr("class", "graticule");
 const gCoast = world.append("path").attr("class", "coast-glow").attr("filter", "url(#coast-glow)");
 let gLayer = world.append("g").attr("class", "year-layer");
 const gHoverProv = world.append("path").attr("class", "hover-province");
+const gProvLabels = world.append("g").attr("class", "province-labels");
 let gLabels = world.append("g").attr("class", "labels");
 const paperRect = svg.append("rect").attr("class", "paper").attr("filter", "url(#paper)");
 const vignette = svg.append("rect").attr("class", "vignette");
@@ -223,6 +224,7 @@ function resize() {
   zoom.translateExtent([[x0, y0], [x1, y1]]);
   gGraticule.attr("d", path(d3.geoGraticule10()));
   if (base.coast) gCoast.attr("d", path(base.coast));
+  if (base.provinces) computeProvinceLabels();
   if (current) {
     drawLayer(gLayer, current);
     drawLabels(gLabels, current);
@@ -230,21 +232,127 @@ function resize() {
 }
 
 // ---------- 缩放平移 ----------
+//
+// 仿 P 社的手感：滚轮带缓动、以鼠标为中心缩放；WASD / 方向键平移，+/- 缩放。
+// 远看只有国家色块和国名，拉近后逐渐出现省界和省份名。
+
+const MAX_ZOOM = 24;
+const PROVINCE_LABEL_ZOOM = 4; // 从这个倍数开始显示省份名
 
 const zoom = d3.zoom()
-  .scaleExtent([1, 20])
+  .scaleExtent([1, MAX_ZOOM])
   .on("zoom", (event) => {
     world.attr("transform", event.transform);
     zoomK = event.transform.k;
     // 放大后才显示省界，避免全图时一片细线
     svg.style("--prov-opacity", Math.max(0, Math.min(1, (zoomK - 1.6) / 2.5)));
-    updateLabelVisibility(gLabels);
+    scheduleLabelUpdate();
   });
-svg.call(zoom).on("dblclick.zoom", null);
+svg.call(zoom)
+  .on("dblclick.zoom", null)
+  .on("wheel.zoom", null); // 滚轮交给下面的平滑缩放
 
-document.getElementById("zoom-in").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 1.6);
-document.getElementById("zoom-out").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.6);
-document.getElementById("zoom-reset").onclick = () => svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+// 标签更新比较重，合并到每帧最多一次
+let labelFrame = 0;
+function scheduleLabelUpdate() {
+  if (labelFrame) return;
+  labelFrame = requestAnimationFrame(() => {
+    labelFrame = 0;
+    updateLabelVisibility(gLabels);
+    updateProvinceLabels();
+  });
+}
+
+// 平滑滚轮缩放：滚轮只改变目标倍数，每帧向目标逼近一段
+const smooth = { target: 1, anchor: null, timer: null };
+
+svg.on("wheel", (event) => {
+  event.preventDefault();
+  const k = d3.zoomTransform(svg.node()).k;
+  if (!smooth.timer) smooth.target = k;
+  // 触控板的 deltaY 很小、鼠标滚轮很大，统一换算成倍数
+  const delta = -event.deltaY * (event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002);
+  smooth.target = Math.max(1, Math.min(MAX_ZOOM, smooth.target * Math.pow(2, Math.max(-0.6, Math.min(0.6, delta)))));
+  smooth.anchor = d3.pointer(event, svg.node());
+  if (!smooth.timer) {
+    smooth.timer = d3.timer(() => {
+      const cur = d3.zoomTransform(svg.node()).k;
+      const next = cur + (smooth.target - cur) * 0.22;
+      if (Math.abs(smooth.target - cur) < 0.002 * cur) {
+        zoom.scaleTo(svg, smooth.target, smooth.anchor);
+        smooth.timer.stop();
+        smooth.timer = null;
+        return;
+      }
+      zoom.scaleTo(svg, next, smooth.anchor);
+    });
+  }
+}, { passive: false });
+
+function stopSmoothZoom() {
+  if (smooth.timer) {
+    smooth.timer.stop();
+    smooth.timer = null;
+  }
+}
+
+const zoomBy = (factor) => {
+  stopSmoothZoom();
+  svg.transition().duration(350).ease(d3.easeCubicOut).call(zoom.scaleBy, factor);
+};
+document.getElementById("zoom-in").onclick = () => zoomBy(1.8);
+document.getElementById("zoom-out").onclick = () => zoomBy(1 / 1.8);
+document.getElementById("zoom-reset").onclick = () => {
+  stopSmoothZoom();
+  svg.transition().duration(600).ease(d3.easeCubicInOut).call(zoom.transform, d3.zoomIdentity);
+};
+
+// 键盘：WASD / 方向键平移（按住持续移动），+ / - 缩放
+const held = new Set();
+const PAN_KEYS = {
+  w: [0, 1], a: [1, 0], s: [0, -1], d: [-1, 0],
+  arrowup: [0, 1], arrowleft: [1, 0], arrowdown: [0, -1], arrowright: [-1, 0],
+};
+let panTimer = null;
+
+window.addEventListener("keydown", (e) => {
+  if (e.target.closest?.("input, textarea")) return;
+  const key = e.key.toLowerCase();
+  if (key === "escape") return select(null);
+  if (key === "+" || key === "=") return zoomBy(1.5);
+  if (key === "-" || key === "_") return zoomBy(1 / 1.5);
+  if (!PAN_KEYS[key]) return;
+  e.preventDefault();
+  held.add(key);
+  if (!panTimer) {
+    let last = performance.now();
+    panTimer = d3.timer(() => {
+      const now = performance.now();
+      const step = (now - last) * 0.9; // 屏幕像素/毫秒
+      last = now;
+      let dx = 0;
+      let dy = 0;
+      for (const k of held) {
+        dx += PAN_KEYS[k][0];
+        dy += PAN_KEYS[k][1];
+      }
+      const t = d3.zoomTransform(svg.node());
+      zoom.translateBy(svg, (dx * step) / t.k, (dy * step) / t.k);
+    });
+  }
+});
+window.addEventListener("keyup", (e) => {
+  held.delete(e.key.toLowerCase());
+  if (!held.size && panTimer) {
+    panTimer.stop();
+    panTimer = null;
+  }
+});
+window.addEventListener("blur", () => {
+  held.clear();
+  panTimer?.stop();
+  panTimer = null;
+});
 
 function zoomToCountry(f) {
   const [[x0, y0], [x1, y1]] = path.bounds(largestPolygon(f.geometry));
@@ -371,6 +479,66 @@ function updateLabelVisibility(g) {
   texts.classed("hidden", (d) => !visible.has(d.name));
 }
 
+// ---------- 省份名（放大后显示） ----------
+
+let provinceLabels = [];
+
+function computeProvinceLabels() {
+  // 同一个行政区切出来的几块省份同名，只在面积最大的那块上标名字
+  const best = new Map();
+  for (const f of base.provinces) {
+    const p = f.properties;
+    const key = `${p.adm0_a3}|${p.label}`;
+    if (!best.has(key) || p.areaKm2 > best.get(key).properties.areaKm2) best.set(key, f);
+  }
+  provinceLabels = [...best.values()].map((f) => {
+    const [x, y] = path.centroid(largestPolygon(f.geometry));
+    const text = f.properties.label;
+    const size = Math.min(3.2, (Math.sqrt(path.area(f)) * 0.75) / Math.max(textEm(text), 2));
+    return { id: f.properties.index, text, x, y, size };
+  }).filter((l) => l.text && Number.isFinite(l.x));
+}
+
+// 只渲染视口内、屏幕字号合适且互不重叠的省份名，避免一次插入几千个节点
+function updateProvinceLabels() {
+  if (zoomK < PROVINCE_LABEL_ZOOM || !current) {
+    gProvLabels.selectAll("text").remove();
+    return;
+  }
+  const t = d3.zoomTransform(svg.node());
+  const [x0, x1] = [t.invertX(0), t.invertX(width)];
+  const [y0, y1] = [t.invertY(0), t.invertY(height)];
+  const hidden = (id) => current.owner[id] === -2;
+
+  // 国名占用的区域也要避开
+  const placed = [];
+  gLabels.selectAll("text:not(.hidden)").each((d) => {
+    const hw = (textEm(d.text) * d.size) / 2;
+    placed.push([d.x - hw, d.y - d.size / 2, d.x + hw, d.y + d.size / 2]);
+  });
+
+  const visible = [];
+  for (const d of provinceLabels) {
+    if (d.x < x0 || d.x > x1 || d.y < y0 || d.y > y1 || hidden(d.id)) continue;
+    const px = d.size * zoomK;
+    if (px < 9 || px > 18) continue;
+    const hw = (textEm(d.text) * d.size) / 2 + 1 / zoomK;
+    const box = [d.x - hw, d.y - d.size / 2, d.x + hw, d.y + d.size / 2];
+    if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+    placed.push(box);
+    visible.push(d);
+  }
+
+  gProvLabels.selectAll("text")
+    .data(visible, (d) => d.id)
+    .join("text")
+    .attr("class", "province-label")
+    .attr("x", (d) => d.x)
+    .attr("y", (d) => d.y)
+    .attr("font-size", (d) => d.size)
+    .text((d) => d.text);
+}
+
 function showTooltip(event, d) {
   const p = d.properties;
   const zh = zhName(p.name);
@@ -421,6 +589,7 @@ async function setYear(year) {
   oldLabels.transition(t).attr("opacity", 0).remove();
 
   select(selected);
+  scheduleLabelUpdate();
 }
 
 // ---------- 选择国家 ----------
@@ -472,10 +641,6 @@ document.getElementById("play").onclick = () => {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => (toast.hidden = true), 2600);
 };
-
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") select(null);
-});
 
 // ---------- URL 状态：#1492/Castille ----------
 
