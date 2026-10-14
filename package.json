@@ -20,9 +20,9 @@
   },
   "homepage": "https://github.com/6walnuts/World-map-with-selected-time#readme",
   "devDependencies": {
+    "@turf/turf": "^7.1.0",
     "mapshaper": "^0.6.102",
-    "vite": "^5.4.10",
-    "world-atlas": "^2.0.2"
+    "vite": "^5.4.10"
   },
   "dependencies": {
     "d3": "^7.9.0",

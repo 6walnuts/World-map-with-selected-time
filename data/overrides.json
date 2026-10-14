@@ -1,0 +1,82 @@
+{
+  "1279": [
+    { "owner": "Goryeo", "overlord": "Great Khanate", "adm0": ["KOR", "PRK"], "note": "高丽在 1270 年后成为元朝的驸马国/附属国，并未被直接吞并" }
+  ],
+
+  "1492": [
+    { "owner": "Northern Yuan", "adm0": "MNG", "note": "1492 年蒙古高原是达延汗治下的北元，不是察合台汗国" },
+    { "owner": "Northern Yuan", "adm0": "CHN", "names": "Inner Mongol", "from": "Chagatai Khanate", "note": "漠南蒙古同属北元" },
+    { "owner": "Northern Yuan", "adm0": "RUS", "names": ["Buryat", "Chita", "Irkutsk"], "from": "Chagatai Khanate", "note": "贝加尔湖周边属蒙古势力范围" },
+    { "owner": "Oirat Confederation", "adm0": "RUS", "names": ["Tuva", "Gorno-Altay"], "from": "Chagatai Khanate", "note": "图瓦、阿尔泰属瓦剌" },
+    { "owner": "Jurchen tribes", "adm0": "RUS", "names": ["Amur", "Yevrey", "Khabarovsk", "Primor'ye"], "from": "Chagatai Khanate", "note": "黑龙江流域为女真诸部，明朝仅羁縻" },
+    { "owner": "Jurchen tribes", "adm0": "CHN", "names": ["Heilongjiang", "Jilin"], "note": "同上" },
+
+    { "owner": "Austria", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "AUT", "note": "哈布斯堡奥地利诸领地" },
+    { "owner": "Austria", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "SVN", "note": "卡尼奥拉、施蒂里亚南部属哈布斯堡" },
+    { "owner": "Austria", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "ITA", "names": ["Bozen", "Gorizia"], "note": "蒂罗尔、戈里齐亚" },
+    { "owner": "Bohemia", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "CZE", "note": "波希米亚王冠领地（含摩拉维亚）" },
+    { "owner": "Bohemia", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "POL", "names": ["Lower Silesian", "Opole"], "note": "西里西亚属波希米亚王冠" },
+    { "owner": "Brandenburg", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": ["Brandenburg", "Berlin"] },
+    { "owner": "Brandenburg", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "POL", "names": "Lubusz", "note": "诺伊马克" },
+    { "owner": "Pomerania", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "POL", "names": "West Pomeranian" },
+    { "owner": "Mecklenburg", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Mecklenburg-Vorpommern" },
+    { "owner": "Saxony", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": ["Sachsen", "Thüringen"], "note": "韦廷家族（恩斯特系与阿尔布雷希特系）" },
+    { "owner": "Magdeburg", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Sachsen-Anhalt", "note": "马格德堡大主教区及安哈尔特" },
+    { "owner": "Brunswick", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Niedersachsen", "note": "不伦瑞克-吕讷堡诸公国" },
+    { "owner": "Hamburg", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Hamburg" },
+    { "owner": "Bremen", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Bremen" },
+    { "owner": "Denmark-Norway", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Schleswig-Holstein", "note": "1460 年起丹麦国王兼任石勒苏益格公爵和荷尔斯泰因伯爵" },
+    { "owner": "Cologne", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Nordrhein-Westfalen", "note": "科隆选侯国等莱茵-威斯特伐利亚诸邦" },
+    { "owner": "Hesse", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Hessen" },
+    { "owner": "Palatinate", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Rheinland-Pfalz", "note": "普法尔茨选侯国及特里尔、美因茨教区" },
+    { "owner": "Lorraine", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Saarland" },
+    { "owner": "Lorraine", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "FRA", "names": ["Moselle", "Meurthe-et-Moselle", "Vosges"] },
+    { "owner": "Württemberg", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Baden-Württemberg" },
+    { "owner": "Bavaria", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "DEU", "names": "Bayern" },
+    { "owner": "Austria", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "FRA", "names": ["Bas-Rhin", "Haute-Rhin", "Territoire de Belfort"], "note": "上阿尔萨斯为哈布斯堡前奥地利领地，下阿尔萨斯多为帝国城市与教会领，此处简化" },
+    { "owner": "Burgundian Netherlands", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": ["BEL", "NLD", "LUX"], "note": "勃艮第遗产，由哈布斯堡的美男子腓力继承" },
+    { "owner": "Burgundian Netherlands", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "FRA", "names": ["Nord", "Pas-de-Calais", "Doubs", "Jura", "Haute-Saône"], "note": "佛兰德、阿图瓦与弗朗什-孔泰（1493 年桑利斯条约正式归还哈布斯堡）" },
+    { "owner": "Liège", "overlord": "Holy Roman Empire", "from": "Burgundian Netherlands", "adm0": "BEL", "names": "Liege", "note": "列日采邑主教区独立于勃艮第" },
+    { "owner": "Swiss Confederation", "from": "Holy Roman Empire", "adm0": ["CHE", "LIE"], "note": "1499 年士瓦本战争后事实独立，此处直接标为独立" },
+    { "owner": "Savoy", "overlord": "Holy Roman Empire", "from": "Swiss Confederation", "adm0": "CHE", "names": ["Genève", "Vaud"], "note": "日内瓦、沃州 1536 年前属萨伏依" },
+    { "owner": "Savoy", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "FRA", "names": ["Savoie", "Haute-Savoie", "Alpes-Maritimes"], "note": "萨伏依与尼斯伯国" },
+    { "owner": "Savoy", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "ITA", "regions": ["Piemonte", "Valle d'Aosta"], "note": "皮埃蒙特（萨卢佐、蒙费拉托等小邦此处并入）" },
+    { "owner": "Genoa", "overlord": "Milan", "from": "Holy Roman Empire", "adm0": ["ITA", "FRA"], "names": ["Imperia", "Savona", "Genova", "La Spezia", "Haute-Corse", "Corse-du-Sud"], "note": "热那亚共和国（含科西嘉），1487–1499 年处于米兰斯福尔扎家族统治下" },
+    { "owner": "Milan", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "ITA", "regions": "Lombardia", "note": "斯福尔扎家族的米兰公国（曼托瓦为贡扎加家族领地，此处简化）" },
+    { "owner": "Milan", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": ["ITA", "CHE"], "names": ["Verbano-Cusio-Ossola", "Novara", "Piacenza", "Parma", "Ticino"] },
+    { "owner": "Ferrara", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "ITA", "names": ["Modena", "Reggio Emilia"], "note": "埃斯特家族的费拉拉-摩德纳" },
+    { "owner": "Florence", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "ITA", "names": ["Firenze", "Prato", "Pistoia", "Arezzo", "Pisa", "Livorno", "Massa-Carrara"], "note": "美第奇家族的佛罗伦萨共和国" },
+    { "owner": "Siena", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "ITA", "names": ["Siena", "Grosseto"] },
+    { "owner": "Lucca", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "ITA", "names": "Lucca" },
+    { "owner": "Papal States", "from": "Holy Roman Empire", "adm0": "ITA", "names": "Viterbo" },
+    { "owner": "Austria", "overlord": "Holy Roman Empire", "from": "Holy Roman Empire", "adm0": "ITA", "names": "Trento", "note": "特伦托采邑主教区，受蒂罗尔保护" },
+    { "owner": "Naples", "from": "Aragón", "adm0": "ITA", "regions": ["Campania", "Calabria", "Apulia", "Basilicata", "Molise", "Abruzzo"], "note": "那不勒斯王国由阿拉贡王室旁支统治，与阿拉贡本身是两个国家" },
+    { "owner": "Imperial Hungary", "from": "Holy Roman Empire", "adm0": ["HRV", "SVK"], "note": "克罗地亚与上匈牙利属匈牙利王冠" }
+  ],
+
+  "1600": [
+    { "owner": "Northern Yuan", "adm0": "MNG", "note": "喀尔喀与察哈尔诸部（北元）" },
+    { "owner": "Oirat Confederation", "adm0": "MNG", "names": ["Hovd", "Uvs", "Bayan-Ölgiy", "Govi-Altay", "Dzavhan"], "note": "蒙古西部属瓦剌" },
+    { "owner": "Northern Yuan", "adm0": "CHN", "names": "Inner Mongol", "from": "central Asian khanates" },
+    { "owner": "Yarkent Khanate", "adm0": "CHN", "names": "Xinjiang", "from": "central Asian khanates", "note": "叶尔羌汗国" },
+    { "owner": "Jurchen tribes", "adm0": "CHN", "names": ["Heilongjiang", "Jilin"], "note": "努尔哈赤统一女真前夕（1616 年建后金）" },
+    { "owner": "Jurchen tribes", "adm0": "RUS", "from": "Ming Chinese Empire", "note": "黑龙江下游并非明朝实控" },
+    { "owner": "Siberian tribes", "adm0": "RUS", "from": "central Asian khanates", "names": ["Sakha (Yakutia)", "Krasnoyarsk", "Irkutsk", "Khabarovsk", "Maga Buryatdan", "Amur", "Buryat", "Chita"], "note": "1600 年俄国尚未越过叶尼塞河，东西伯利亚为当地部落" },
+    { "owner": "Oirat Confederation", "adm0": "RUS", "from": "central Asian khanates", "names": ["Tuva", "Gorno-Altay"] }
+  ],
+
+  "1815": [
+    { "owner": "United Kingdom of Netherlands", "adm0": "BEL", "note": "维也纳会议将原奥属尼德兰并入尼德兰联合王国（原数据误标为奥地利）" }
+  ],
+
+  "1914": [
+    { "rename": "Manchu Empire", "to": "Republic of China", "note": "清朝已于 1912 年灭亡" }
+  ],
+
+  "1938": [
+    { "rename": "Chinese warlords", "to": "Republic of China" },
+    { "owner": "Manchukuo", "overlord": "Empire of Japan", "adm0": "CHN", "names": ["Heilongjiang", "Jilin", "Liaoning"], "from": "Empire of Japan", "note": "伪满洲国" },
+    { "owner": "Turkey", "adm0": "TUR", "note": "原数据把土耳其东部标成亚美尼亚和法属叙利亚，1923 年洛桑条约后均属土耳其" },
+    { "owner": "State of Hatay", "overlord": "France", "adm0": "TUR", "names": "Hatay", "note": "1938 年的哈塔伊国，次年并入土耳其" }
+  ]
+}

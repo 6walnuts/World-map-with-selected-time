@@ -159,6 +159,37 @@ button {
   vector-effect: non-scaling-stroke;
 }
 
+.unclaimed {
+  fill: #c4b791;
+  stroke: rgba(60, 45, 25, 0.25);
+  stroke-width: 0.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.terra-incognita {
+  fill: url(#terra-incognita);
+  stroke: #2e271c;
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.province-lines {
+  fill: none;
+  stroke: rgba(40, 28, 12, 0.45);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+  opacity: var(--prov-opacity, 0);
+  pointer-events: none;
+}
+
+.hover-province {
+  fill: rgba(255, 245, 210, 0.28);
+  stroke: rgba(255, 245, 210, 0.9);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
 .country {
   stroke: var(--border);
   stroke-width: 0.7;
@@ -239,6 +270,14 @@ button {
 
 #tooltip strong {
   color: var(--gold);
+}
+
+#tooltip .prov {
+  font-size: 12px;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--panel-edge);
+  padding-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 #tooltip .orig {

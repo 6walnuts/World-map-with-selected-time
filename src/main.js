@@ -1,6 +1,14 @@
 import * as d3 from "d3";
 import * as topojson from "topojson-client";
-import { BOOKMARKS, DEFAULT_YEAR, FIXED_COLORS, ZH_NAMES, UNORGANIZED_RE } from "./config.js";
+import {
+  BOOKMARKS,
+  DEFAULT_YEAR,
+  FIXED_COLORS,
+  ZH_NAMES,
+  UNORGANIZED_RE,
+  NEW_WORLD_MAX_LON,
+  NOMINAL_OVERLORDS,
+} from "./config.js";
 import "./style.css";
 
 const DATA = import.meta.env.BASE_URL + "data/";
@@ -32,17 +40,12 @@ function baseColor(name) {
   return FIXED_COLORS[name] ?? hashColor(name);
 }
 
-function isValidOverlord(name, overlord) {
-  const o = overlord?.trim();
-  return o && o !== name && !o.startsWith("(");
-}
-
 // 附庸 / 殖民地用宗主国颜色的浅色版，类似 P 社的殖民国家
-function countryColor(p) {
-  if (p.unorganized) return "#cdbf98";
-  if (FIXED_COLORS[p.name]) return FIXED_COLORS[p.name];
-  if (p.overlord) return d3.interpolateRgb(baseColor(p.overlord), "#f4ecd8")(0.35);
-  return hashColor(p.name);
+function countryColor(c) {
+  if (c.unorganized) return "#cdbf98";
+  if (FIXED_COLORS[c.name]) return FIXED_COLORS[c.name];
+  if (c.overlord && !NOMINAL_OVERLORDS.has(c.overlord)) return d3.interpolateRgb(baseColor(c.overlord), "#f4ecd8")(0.35);
+  return hashColor(c.name);
 }
 
 // ---------- 名称 ----------
@@ -56,67 +59,103 @@ function textEm(s) {
   return w;
 }
 
-// ---------- 数据加载 ----------
+// ---------- 省份底图（与年份无关，只加载一次） ----------
 
-// d3-geo 按球面绕向判断多边形内外：绕反了的多边形会被当成"整个地球减去它"。
-// 简化工具偶尔会产出这种多边形，这里把面积超过半个球面的多边形反转回来。
-function fixWinding(geometry) {
-  if (!geometry) return geometry;
-  const fixPolygon = (rings) => {
-    const area = d3.geoArea({ type: "Polygon", coordinates: rings });
-    return area > 2 * Math.PI ? rings.map((r) => r.slice().reverse()) : rings;
-  };
-  if (geometry.type === "Polygon") geometry.coordinates = fixPolygon(geometry.coordinates);
-  if (geometry.type === "MultiPolygon") geometry.coordinates = geometry.coordinates.map(fixPolygon);
-  return geometry;
+const base = {
+  topo: null,
+  geoms: null, // TopoJSON 里的省份几何对象
+  provinces: null, // GeoJSON features
+  neighbors: null,
+  coast: null, // 海岸线（省份的外边界）
+};
+
+async function loadBase() {
+  const topo = await d3.json(`${DATA}provinces.json`);
+  const obj = Object.values(topo.objects)[0];
+  base.topo = topo;
+  base.geoms = obj.geometries;
+  base.geoms.forEach((g, i) => (g.index = i));
+  base.provinces = topojson.feature(topo, obj).features;
+  base.neighbors = topojson.neighbors(obj.geometries);
+  base.coast = topojson.mesh(topo, obj, (a, b) => a === b);
+
+  base.provinces.forEach((f, i) => {
+    const p = f.properties;
+    p.index = i;
+    p.label = p.name_zh || p.name;
+    p.areaKm2 = d3.geoArea(f) * EARTH_RADIUS_KM ** 2;
+    p.newWorld = d3.geoCentroid(f)[0] < NEW_WORLD_MAX_LON;
+    p.bbox = d3.geoBounds(f);
+  });
 }
+
+// ---------- 每个年份的归属表 ----------
 
 const cache = new Map();
 
-async function loadYear(year) {
-  if (cache.has(year)) return cache.get(year);
-  const topo = await d3.json(`${DATA}world_${year}.json`);
-  const obj = Object.values(topo.objects)[0];
-  const features = topojson.feature(topo, obj).features;
-  const neighbors = topojson.neighbors(obj.geometries);
+async function loadYear(bm) {
+  if (cache.has(bm.year)) return cache.get(bm.year);
+  const raw = await d3.json(`${DATA}owners_${bm.year}.json`);
 
-  const countries = [];
-  features.forEach((f, i) => {
-    const name = f.properties.NAME?.trim();
-    if (!name || !f.geometry) return;
-    fixWinding(f.geometry);
-    const overlordRaw = f.properties.SUBJECTO?.trim();
+  const countries = raw.countries.map((c, id) => {
     const p = {
-      name,
-      overlord: isValidOverlord(name, overlordRaw) ? overlordRaw : null,
-      unorganized: UNORGANIZED_RE.test(name),
-      areaKm2: d3.geoArea(f) * EARTH_RADIUS_KM ** 2,
-      index: i,
+      id,
+      name: c.name,
+      overlord: c.overlord ?? null,
+      unorganized: UNORGANIZED_RE.test(c.name),
+      provinces: [],
+      areaKm2: 0,
     };
     p.color = countryColor(p);
-    f.properties = p;
-    countries.push(f);
+    return p;
   });
 
-  const byIndex = new Map(countries.map((f) => [f.properties.index, f]));
-  for (const f of countries) {
-    f.properties.neighbors = neighbors[f.properties.index]
-      .map((j) => byIndex.get(j))
-      .filter(Boolean)
-      .map((n) => n.properties.name);
-  }
+  // 新大陆隐藏时，那些省份一律视为"未知之地"
+  const owner = raw.owner.map((o, i) =>
+    bm.hideNewWorld && base.provinces[i].properties.newWorld ? -2 : o
+  );
 
-  const ranked = countries.filter((f) => !f.properties.unorganized)
+  const unclaimed = [];
+  const unknown = [];
+  owner.forEach((o, i) => {
+    if (o === -1) unclaimed.push(i);
+    else if (o === -2) unknown.push(i);
+    else {
+      countries[o].provinces.push(i);
+      countries[o].areaKm2 += base.provinces[i].properties.areaKm2;
+    }
+  });
+
+  const merge = (ids) => topojson.merge(base.topo, ids.map((i) => base.geoms[i]));
+
+  const features = countries
+    .filter((c) => c.provinces.length)
+    .map((c) => {
+      const nb = new Set();
+      for (const i of c.provinces) {
+        for (const j of base.neighbors[i]) if (owner[j] >= 0 && owner[j] !== c.id) nb.add(owner[j]);
+      }
+      c.neighbors = [...nb].map((j) => countries[j].name);
+      return { type: "Feature", properties: c, geometry: merge(c.provinces) };
+    });
+
+  const ranked = features.filter((f) => !f.properties.unorganized)
     .sort((a, b) => b.properties.areaKm2 - a.properties.areaKm2);
   ranked.forEach((f, i) => (f.properties.rank = i + 1));
 
   const result = {
-    year,
-    countries,
-    byName: new Map(countries.map((f) => [f.properties.name, f])),
+    year: bm.year,
+    owner,
+    countries: features,
+    byName: new Map(features.map((f) => [f.properties.name, f])),
     total: ranked.length,
+    unclaimed: merge(unclaimed),
+    unknown: unknown.length ? merge(unknown) : null,
+    // 同一国家内部的省界（细线）
+    provinceLines: topojson.mesh(base.topo, { type: "GeometryCollection", geometries: base.geoms },
+      (a, b) => a !== b && owner[a.index] === owner[b.index]),
   };
-  cache.set(year, result);
+  cache.set(bm.year, result);
   return result;
 }
 
@@ -142,12 +181,18 @@ paper.append("feComposite").attr("in2", "SourceGraphic").attr("operator", "in");
 const glow = defs.append("filter").attr("id", "coast-glow").attr("x", "-5%").attr("y", "-5%").attr("width", "110%").attr("height", "110%");
 glow.append("feGaussianBlur").attr("stdDeviation", 2.5);
 
+// 未知之地：斜线阴影
+const fog = defs.append("pattern").attr("id", "terra-incognita").attr("width", 6).attr("height", 6)
+  .attr("patternUnits", "userSpaceOnUse").attr("patternTransform", "rotate(35)");
+fog.append("rect").attr("width", 6).attr("height", 6).attr("fill", "#3e3527");
+fog.append("line").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", 6).attr("stroke", "#4b402f").attr("stroke-width", 2);
+
 const oceanRect = svg.append("rect").attr("class", "ocean").attr("fill", "url(#ocean-grad)");
 const world = svg.append("g").attr("class", "world");
 const gGraticule = world.append("path").attr("class", "graticule");
 const gCoast = world.append("path").attr("class", "coast-glow").attr("filter", "url(#coast-glow)");
-const gLand = world.append("path").attr("class", "land");
-let gCountries = world.append("g").attr("class", "countries");
+let gLayer = world.append("g").attr("class", "year-layer");
+const gHoverProv = world.append("path").attr("class", "hover-province");
 let gLabels = world.append("g").attr("class", "labels");
 const paperRect = svg.append("rect").attr("class", "paper").attr("filter", "url(#paper)");
 const vignette = svg.append("rect").attr("class", "vignette");
@@ -157,7 +202,6 @@ const path = d3.geoPath(projection);
 
 let width = 0;
 let height = 0;
-let land = null;
 let current = null; // 当前年份的数据
 let selected = null; // 选中的国家名
 let zoomK = 1;
@@ -178,12 +222,9 @@ function resize() {
 
   zoom.translateExtent([[x0, y0], [x1, y1]]);
   gGraticule.attr("d", path(d3.geoGraticule10()));
-  if (land) {
-    gLand.attr("d", path(land));
-    gCoast.attr("d", path(land));
-  }
+  if (base.coast) gCoast.attr("d", path(base.coast));
   if (current) {
-    gCountries.selectAll("path").attr("d", path);
+    drawLayer(gLayer, current);
     drawLabels(gLabels, current);
   }
 }
@@ -191,10 +232,12 @@ function resize() {
 // ---------- 缩放平移 ----------
 
 const zoom = d3.zoom()
-  .scaleExtent([1, 14])
+  .scaleExtent([1, 20])
   .on("zoom", (event) => {
     world.attr("transform", event.transform);
     zoomK = event.transform.k;
+    // 放大后才显示省界，避免全图时一片细线
+    svg.style("--prov-opacity", Math.max(0, Math.min(1, (zoomK - 1.6) / 2.5)));
     updateLabelVisibility(gLabels);
   });
 svg.call(zoom).on("dblclick.zoom", null);
@@ -204,8 +247,8 @@ document.getElementById("zoom-out").onclick = () => svg.transition().duration(30
 document.getElementById("zoom-reset").onclick = () => svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
 
 function zoomToCountry(f) {
-  const [[x0, y0], [x1, y1]] = path.bounds(largestPolygon(f));
-  const k = Math.min(8, 0.5 / Math.max((x1 - x0) / width, (y1 - y0) / height));
+  const [[x0, y0], [x1, y1]] = path.bounds(largestPolygon(f.geometry));
+  const k = Math.min(10, 0.5 / Math.max((x1 - x0) / width, (y1 - y0) / height));
   const t = d3.zoomIdentity
     .translate(width / 2, height / 2)
     .scale(Math.max(1, k))
@@ -213,11 +256,10 @@ function zoomToCountry(f) {
   svg.transition().duration(750).call(zoom.transform, t);
 }
 
-// ---------- 国家与标签 ----------
+// ---------- 国家、省份与标签 ----------
 
-function largestPolygon(f) {
-  const g = f.geometry;
-  if (g.type !== "MultiPolygon") return f;
+function largestPolygon(g) {
+  if (g.type !== "MultiPolygon") return g;
   let best = null;
   let bestArea = -1;
   for (const coords of g.coordinates) {
@@ -231,33 +273,57 @@ function largestPolygon(f) {
   return best;
 }
 
-function drawCountries(g, data) {
-  g.selectAll("path")
+// 鼠标下的省份：先用经纬度包围盒粗筛，再精确判断
+function provinceAt(event, country) {
+  const [x, y] = d3.pointer(event, world.node());
+  const ll = projection.invert([x, y]);
+  if (!ll) return null;
+  for (const i of country.provinces) {
+    const f = base.provinces[i];
+    const [[w, s], [e, n]] = f.properties.bbox;
+    if (ll[1] < s || ll[1] > n) continue;
+    if (w <= e ? ll[0] < w || ll[0] > e : ll[0] < w && ll[0] > e) continue;
+    if (d3.geoContains(f, ll)) return f;
+  }
+  return null;
+}
+
+function drawLayer(g, data) {
+  g.selectAll("*").remove();
+
+  g.append("path").attr("class", "unclaimed").attr("d", path(data.unclaimed));
+  if (data.unknown) g.append("path").attr("class", "terra-incognita").attr("d", path(data.unknown));
+
+  g.append("g")
+    .attr("class", "countries")
+    .selectAll("path")
     .data(data.countries, (d) => d.properties.name)
     .join("path")
     .attr("class", (d) => "country" + (d.properties.unorganized ? " unorganized" : ""))
+    .classed("selected", (d) => d.properties.name === selected)
     .attr("d", path)
     .attr("fill", (d) => d.properties.color)
-    .on("mouseenter", (event, d) => {
-      d3.select(event.currentTarget).classed("hover", true);
-      showTooltip(event, d);
-    })
+    .on("mouseenter", (event) => d3.select(event.currentTarget).classed("hover", true))
     .on("mousemove", (event, d) => showTooltip(event, d))
     .on("mouseleave", (event) => {
       d3.select(event.currentTarget).classed("hover", false);
       tooltip.hidden = true;
+      gHoverProv.attr("d", null);
     })
     .on("click", (event, d) => {
       event.stopPropagation();
-      select(d.properties.name, { zoom: false });
+      select(d.properties.name);
     });
+
+  g.append("path").attr("class", "province-lines").attr("d", path(data.provinceLines));
+  g.select(".countries").selectAll("path.selected").raise();
 }
 
 function drawLabels(g, data) {
   const labels = data.countries
     .filter((f) => !f.properties.unorganized)
     .map((f) => {
-      const poly = largestPolygon(f);
+      const poly = largestPolygon(f.geometry);
       const [cx, cy] = path.centroid(poly);
       const area = path.area(poly);
       const text = zhName(f.properties.name);
@@ -265,7 +331,7 @@ function drawLabels(g, data) {
       const size = Math.min(26, (Math.sqrt(area) * 1.15) / Math.max(textEm(text), 2.5));
       return { name: f.properties.name, text, x: cx, y: cy, size };
     })
-    .filter((l) => Number.isFinite(l.x) && l.size > 0.4);
+    .filter((l) => Number.isFinite(l.x) && l.size > 0.3);
 
   g.selectAll("text")
     .data(labels, (d) => d.name)
@@ -308,7 +374,10 @@ function updateLabelVisibility(g) {
 function showTooltip(event, d) {
   const p = d.properties;
   const zh = zhName(p.name);
+  const prov = provinceAt(event, p);
+  gHoverProv.attr("d", prov ? path(prov) : null);
   tooltip.innerHTML =
+    (prov ? `<span class="prov">${prov.properties.label}</span>` : "") +
     `<strong>${zh}</strong>` +
     (zh !== p.name ? `<span class="orig">${p.name}</span>` : "") +
     (p.overlord ? `<span class="sub">附属于 ${zhName(p.overlord)}</span>` : "");
@@ -329,27 +398,29 @@ async function setYear(year) {
 
   const loading = document.getElementById("loading");
   loading.hidden = false;
-  const data = await loadYear(bm.year);
+  const data = await loadYear(bm);
   loading.hidden = true;
   if (current === data) return;
   current = data;
 
+  // 如果原来选中的国家在这个年份还存在，就保持选中
+  if (selected && !data.byName.has(selected)) selected = null;
+
   // 新旧两层交叉淡入淡出
-  const oldCountries = gCountries;
+  const oldLayer = gLayer;
   const oldLabels = gLabels;
-  gCountries = world.insert("g", ".labels").attr("class", "countries").attr("opacity", 0);
+  gLayer = world.insert("g", ".hover-province").attr("class", "year-layer").attr("opacity", 0);
   gLabels = world.append("g").attr("class", "labels").attr("opacity", 0);
-  drawCountries(gCountries, data);
+  drawLayer(gLayer, data);
   drawLabels(gLabels, data);
 
   const t = d3.transition().duration(450);
-  gCountries.transition(t).attr("opacity", 1);
+  gLayer.transition(t).attr("opacity", 1);
   gLabels.transition(t).attr("opacity", 1);
-  oldCountries.transition(t).attr("opacity", 0).remove();
+  oldLayer.transition(t).attr("opacity", 0).remove();
   oldLabels.transition(t).attr("opacity", 0).remove();
 
-  // 如果原来选中的国家在这个年份还存在，就保持选中
-  select(selected && data.byName.has(selected) ? selected : null, { zoom: false });
+  select(selected);
 }
 
 // ---------- 选择国家 ----------
@@ -359,8 +430,8 @@ function select(name, { zoom: doZoom = false } = {}) {
   const f = name ? current.byName.get(name) : null;
 
   svg.classed("has-selection", !!f);
-  gCountries.selectAll("path").classed("selected", (d) => d.properties.name === name);
-  gCountries.selectAll("path.selected").raise();
+  const paths = gLayer.selectAll(".country").classed("selected", (d) => d.properties.name === name);
+  paths.filter(".selected").raise();
 
   document.getElementById("panel-empty").hidden = !!f;
   document.getElementById("panel-country").hidden = !f;
@@ -372,6 +443,7 @@ function select(name, { zoom: doZoom = false } = {}) {
   document.getElementById("c-name").textContent = zh;
   document.getElementById("c-orig").textContent = zh !== p.name ? p.name : "";
   document.getElementById("c-overlord").textContent = p.overlord ? zhName(p.overlord) : "独立";
+  document.getElementById("c-provinces").textContent = p.provinces.length;
   document.getElementById("c-area").textContent = `${Math.round(p.areaKm2).toLocaleString("zh-CN")} km²`;
   document.getElementById("c-rank").textContent = p.unorganized ? "—" : `第 ${p.rank} / ${current.total}`;
 
@@ -380,16 +452,13 @@ function select(name, { zoom: doZoom = false } = {}) {
   shield.textContent = [...zh][0];
 
   const ul = d3.select("#c-neighbors");
-  const neighbors = p.neighbors.length ? p.neighbors : [];
+  ul.selectAll("li").remove();
   ul.selectAll("li")
-    .data(neighbors, (d) => d)
+    .data(p.neighbors)
     .join("li")
-    .html((d) => {
-      const nf = current.byName.get(d);
-      return `<span class="swatch" style="background:${nf.properties.color}"></span>${zhName(d)}`;
-    })
+    .html((d) => `<span class="swatch" style="background:${current.byName.get(d).properties.color}"></span>${zhName(d)}`)
     .on("click", (_, d) => select(d, { zoom: true }));
-  if (!neighbors.length) ul.append("li").attr("class", "none").text("无陆上邻国");
+  if (!p.neighbors.length) ul.append("li").attr("class", "none").text("无陆上邻国");
 
   if (doZoom) zoomToCountry(f);
 }
@@ -431,15 +500,13 @@ d3.select("#bookmarks")
   .on("click", (_, d) => setYear(d.year));
 
 async function init() {
-  const landTopo = await d3.json(`${DATA}land.json`);
-  land = topojson.feature(landTopo, landTopo.objects.land);
-  for (const f of land.features ?? [land]) fixWinding(f.geometry);
+  await loadBase();
   resize();
   const { year, name } = readHash();
   await setYear(year);
   if (name && current.byName.has(name)) select(name, { zoom: true });
   // 后台预加载其他年份，切换时更顺滑
-  BOOKMARKS.forEach((b) => loadYear(b.year));
+  BOOKMARKS.forEach((b) => loadYear(b));
 }
 
 let resizeTimer;

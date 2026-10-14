@@ -4,6 +4,8 @@ export const BOOKMARKS = [
     year: 1279,
     title: "蒙古世纪",
     desc: "崖山之后，元朝一统中国。蒙古诸汗国横跨欧亚，欧洲则处在十字军时代的尾声。",
+    // 地理大发现之前，美洲对旧大陆而言是未知之地
+    hideNewWorld: true,
   },
   {
     year: 1492,
@@ -38,6 +40,9 @@ export const BOOKMARKS = [
 ];
 
 export const DEFAULT_YEAR = 1492;
+
+// 质心经度小于这个值的省份算作"新大陆"（美洲、格陵兰、东太平洋诸岛）
+export const NEW_WORLD_MAX_LON = -25;
 
 // 指定一些大国的经典配色（参考 P 社的习惯），其余国家按名字哈希取色
 export const FIXED_COLORS = {
@@ -97,6 +102,23 @@ export const FIXED_COLORS = {
   "Timurid Emirates": "#8a7a4a",
   "Inca Empire": "#b56a2c",
   Korea: "#6a8fb5",
+  Goryeo: "#6a8fb5",
+  "Northern Yuan": "#8c7a52",
+  "Jurchen tribes": "#7d6a8f",
+  "Burgundian Netherlands": "#b07a3a",
+  Bohemia: "#c9a24a",
+  Brandenburg: "#5d6b7d",
+  Saxony: "#3f8a6e",
+  Bavaria: "#6fa0c8",
+  Milan: "#8f5aa0",
+  Naples: "#5e8f9e",
+  Savoy: "#7a9ab8",
+  "Swiss Confederation": "#b35a4a",
+  "Grand Duchy of Moscow": "#3d6b3a",
+  "Republic of China": "#c9a23a",
+  Manchukuo: "#a85454",
+  "United Kingdom of Netherlands": "#e88a2e",
+  "United Kingdom of the Netherlands": "#e88a2e",
   // 原始数据里的拼写变体（多出现在 SUBJECTO 字段）
   Neterlands: "#e88a2e",
   Danemark: "#c0403a",
@@ -266,8 +288,45 @@ export const ZH_NAMES = {
   Brandenburg: "勃兰登堡",
   Britany: "布列塔尼",
   "Sweden–Norway": "瑞典-挪威",
+  Goryeo: "高丽",
+  "Northern Yuan": "北元",
+  "Oirat Confederation": "瓦剌",
+  "Jurchen tribes": "女真诸部",
+  "Yarkent Khanate": "叶尔羌汗国",
+  "Siberian tribes": "西伯利亚诸部",
+  "Grand Duchy of Moscow": "莫斯科大公国",
+  "Burgundian Netherlands": "勃艮第尼德兰",
+  "Liège": "列日",
+  "Swiss Confederation": "瑞士邦联",
+  Savoy: "萨伏依",
+  Florence: "佛罗伦萨",
+  Siena: "锡耶纳",
+  Lucca: "卢卡",
+  Ferrara: "费拉拉",
+  Magdeburg: "马格德堡",
+  Brunswick: "不伦瑞克",
+  Hamburg: "汉堡",
+  Bremen: "不来梅",
+  Cologne: "科隆",
+  Hesse: "黑森",
+  Palatinate: "普法尔茨",
+  Lorraine: "洛林",
+  Pomerania: "波美拉尼亚",
+  Mecklenburg: "梅克伦堡",
+  "United Kingdom of Netherlands": "尼德兰联合王国",
+  "Republic of China": "中华民国",
+  Manchukuo: "伪满洲国",
+  "State of Hatay": "哈塔伊国",
+  Lombardy: "伦巴第",
+  Venetia: "威尼西亚",
+  Tuscany: "托斯卡纳",
+  Modena: "摩德纳",
+  Parma: "帕尔马",
   "Swedish Empire": "瑞典帝国",
 };
+
+// 名义上的宗主：成员国保留自己的颜色，不染成宗主色
+export const NOMINAL_OVERLORDS = new Set(["Holy Roman Empire"]);
 
 // 名字里出现这些词的视为"无组织的部落/文化区"，像 P 社的未殖民地一样淡色显示
 export const UNORGANIZED_RE =
