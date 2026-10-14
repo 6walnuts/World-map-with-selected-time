@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>历史开局地图</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+SC:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header id="topbar">
+      <div class="brand">
+        <span class="brand-title">选择开局</span>
+        <span class="brand-sub">Choose a Start Date</span>
+      </div>
+      <nav id="bookmarks"></nav>
+    </header>
+
+    <main id="stage">
+      <svg id="map"></svg>
+      <div id="tooltip" hidden></div>
+      <div id="loading">载入地图中…</div>
+      <div class="zoom-ctl">
+        <button id="zoom-in" title="放大">＋</button>
+        <button id="zoom-out" title="缩小">－</button>
+        <button id="zoom-reset" title="重置视图">⟲</button>
+      </div>
+    </main>
+
+    <aside id="panel">
+      <div id="panel-empty">
+        <div class="era-year" id="era-year"></div>
+        <div class="era-title" id="era-title"></div>
+        <p class="era-desc" id="era-desc"></p>
+        <p class="hint">在地图上点击一个国家来查看并选择它。</p>
+      </div>
+      <div id="panel-country" hidden>
+        <div class="shield" id="shield"></div>
+        <h2 id="c-name"></h2>
+        <div class="c-orig" id="c-orig"></div>
+        <dl class="stats">
+          <dt>宗主 / 所属</dt><dd id="c-overlord"></dd>
+          <dt>领土面积</dt><dd id="c-area"></dd>
+          <dt>面积排名</dt><dd id="c-rank"></dd>
+        </dl>
+        <h3>邻国</h3>
+        <ul id="c-neighbors"></ul>
+        <button id="play" class="play">以此国开局</button>
+        <button id="deselect" class="ghost">返回</button>
+      </div>
+    </aside>
+
+    <div id="toast" hidden></div>
+
+    <footer id="credit">
+      边界数据：<a href="https://github.com/aourednik/historical-basemaps" target="_blank" rel="noopener">historical-basemaps</a>
+      (GPL-3.0) · 陆地：Natural Earth
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
