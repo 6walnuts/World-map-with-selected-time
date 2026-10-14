@@ -132,7 +132,7 @@ for (const [key, ids] of byOwner) {
   } else {
     features.push({
       type: "Feature",
-      properties: { label: seats[0]?.name ?? ownerName ?? "", o, whole: true },
+      properties: { label: ownerName ?? "", o, whole: true },
       geometry: territory,
     });
   }

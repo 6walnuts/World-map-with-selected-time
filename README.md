@@ -71,6 +71,8 @@ npm run build    # 打包到 dist/，可直接部署到任意静态托管
 3. 有两个以上治所的国家，按“离哪个治所最近”（Voronoi）划分辖区；
 4. 没有列治所的国家（芬兰、东欧斯拉夫诸部、草原游牧等史料中没有明确区划的）整体算一个省。
 
+伊斯兰世界部分（阿拔斯、安达卢斯、马格里布等 143 个区府）导入自开源地名辞典 [al-Ṯurayyā](https://github.com/althurayya/althurayya.github.io)（CC BY 4.0，坐标源自 Cornu《古典时期阿拉伯-伊斯兰世界地图集》），用 `node scripts/import-althurayya.mjs <places.geojson>` 重新导入；其余国家的治所为手工整理。
+
 辖区的**名称和治所是史实**，**边界是近似的**。生成的 `provinces_<年份>.json` 只给这一年用，归属表里的 `"provinces"` 字段告诉前端用哪份底图。`build-data.sh` 遇到有治所表的年份会自动执行这一步。
 
 ### historical-basemaps 没有的年份
@@ -87,4 +89,5 @@ npm run build    # 打包到 dist/，可直接部署到任意静态托管
 
 - 历史边界：[aourednik/historical-basemaps](https://github.com/aourednik/historical-basemaps)，GPL-3.0（见 `public/data/LICENSE`）。归属表由它派生。
 - 省份底图：[Natural Earth](https://www.naturalearthdata.com/)，公有领域。
+- 800 年伊斯兰世界区府：al-Ṯurayyā Gazetteer Project, https://github.com/althurayya/althurayya.github.io ，CC BY 4.0（已翻译地名并筛去 800 年尚不存在的城市）。
 - 省份是现代行政区切出来的，形状并非历史上的真实省份；归属精度参差不齐，仅供参考。
