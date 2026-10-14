@@ -29,6 +29,8 @@ npm run build    # 打包到 dist/，可直接部署到任意静态托管
 | `public/data/provinces.json` | 省份几何，所有年份共用 |
 | `public/data/owners_<年份>.json` | 该年份每个省份属于哪个国家 |
 | `data/overrides.json` | 手工修正规则（带史实依据注释） |
+| `data/admin_<年份>.json` | 某年各国行政区划的治所，用来生成该年专用省份 |
+| `public/data/provinces_<年份>.json` | 按当时行政区划生成的该年专用省份 |
 
 生成流程：
 
@@ -59,6 +61,17 @@ npm run build    # 打包到 dist/，可直接部署到任意静态托管
 ```
 
 改完运行 `bash scripts/build-data.sh 1492`，只重建对应年份。
+
+### 按当时的行政区划划分省份（目前用于 800 年）
+
+`data/admin_<年份>.json` 列出该年各国一级行政区的治所（名称 + 经纬度），例如唐朝的州府、法兰克的伯爵领、拜占庭的军区、阿拔斯的行省、日本的令制国。`scripts/build-admin-provinces.mjs` 会：
+
+1. 用该年的归属表把通用省份合并成各国疆域；
+2. 每个治所落在哪国疆域，就是哪国的一个省；
+3. 有两个以上治所的国家，按“离哪个治所最近”（Voronoi）划分辖区；
+4. 没有列治所的国家（芬兰、东欧斯拉夫诸部、草原游牧等史料中没有明确区划的）整体算一个省。
+
+辖区的**名称和治所是史实**，**边界是近似的**。生成的 `provinces_<年份>.json` 只给这一年用，归属表里的 `"provinces"` 字段告诉前端用哪份底图。`build-data.sh` 遇到有治所表的年份会自动执行这一步。
 
 ### historical-basemaps 没有的年份
 

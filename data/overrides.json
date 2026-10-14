@@ -45,7 +45,9 @@
     { "owner": "Weibo Circuit", "overlord": "Tang Empire", "adm0": "CHN", "names": "Hebei", "bbox": [113, 35, 118, 37.4], "note": "河朔三镇之魏博（田季安）" },
     { "owner": "Weibo Circuit", "overlord": "Tang Empire", "adm0": "CHN", "names": "Henan", "bbox": [113.5, 35.4, 116, 36.5] },
     { "owner": "Pinglu Circuit", "overlord": "Tang Empire", "from": "Tang Empire", "adm0": "CHN", "names": "Shandong", "note": "平卢淄青（李师古）" },
-    { "owner": "Huaixi Circuit", "overlord": "Tang Empire", "from": "Tang Empire", "adm0": "CHN", "names": "Henan", "bbox": [113.3, 32.3, 115.6, 33.9], "note": "淮西（吴少诚），800 年抗命，唐军征讨失利" }
+    { "owner": "Huaixi Circuit", "overlord": "Tang Empire", "from": "Tang Empire", "adm0": "CHN", "names": "Henan", "bbox": [113.3, 31.6, 115.9, 33.9], "note": "淮西（吴少诚，领申、光、蔡三州），800 年抗命，唐军征讨失利" },
+    { "owner": "Imamate of Oman", "adm0": "OMN", "note": "793 年伊巴德派在阿曼重建伊玛目国，脱离阿拔斯" },
+    { "owner": "Emishi", "adm0": "JPN", "names": ["Aomori", "Iwate", "Akita"], "note": "本州北部的虾夷，坂上田村麻吕 801–802 年才北征至胆泽" }
   ],
 
   "1279": [

@@ -26,3 +26,9 @@ for arg in "${YEARS[@]}"; do
 done
 
 node scripts/build-owners.mjs "${YEARS[@]}"
+
+# 有行政区划治所表（data/admin_<年份>.json）的年份，改用按当时区划生成的省份
+for arg in "${YEARS[@]}"; do
+  y="${arg%%:*}"
+  [ -f "data/admin_$y.json" ] && node scripts/build-admin-provinces.mjs "$y"
+done

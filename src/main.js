@@ -59,34 +59,38 @@ function textEm(s) {
   return w;
 }
 
-// ---------- 省份底图（与年份无关，只加载一次） ----------
+// ---------- 省份底图 ----------
+//
+// 默认所有年份共用 provinces.json；归属表里写了 "provinces" 字段的年份
+// （例如按 800 年行政区划生成的 provinces_800.json）使用自己的省份底图。
 
-const base = {
-  topo: null,
-  geoms: null, // TopoJSON 里的省份几何对象
-  provinces: null, // GeoJSON features
-  neighbors: null,
-  coast: null, // 海岸线（省份的外边界）
-};
+const provinceSets = new Map();
 
-async function loadBase() {
-  const topo = await d3.json(`${DATA}provinces.json`);
+function loadProvinceSet(file) {
+  if (!provinceSets.has(file)) provinceSets.set(file, d3.json(`${DATA}${file}`).then(buildProvinceSet));
+  return provinceSets.get(file);
+}
+
+function buildProvinceSet(topo) {
   const obj = Object.values(topo.objects)[0];
-  base.topo = topo;
-  base.geoms = obj.geometries;
-  base.geoms.forEach((g, i) => (g.index = i));
-  base.provinces = topojson.feature(topo, obj).features;
-  base.neighbors = topojson.neighbors(obj.geometries);
-  base.coast = topojson.mesh(topo, obj, (a, b) => a === b);
-
-  base.provinces.forEach((f, i) => {
+  const set = {
+    topo,
+    geoms: obj.geometries, // TopoJSON 里的省份几何对象
+    provinces: topojson.feature(topo, obj).features, // GeoJSON features
+    neighbors: topojson.neighbors(obj.geometries),
+    coast: topojson.mesh(topo, obj, (a, b) => a === b), // 海岸线（省份的外边界）
+    labels: null, // 省份名标签，依赖投影，resize 后重算
+  };
+  set.geoms.forEach((g, i) => (g.index = i));
+  set.provinces.forEach((f, i) => {
     const p = f.properties;
     p.index = i;
-    p.label = p.name_zh || p.name || p.admin || "";
+    p.label = p.label || p.name_zh || p.name || p.admin || "";
     p.areaKm2 = d3.geoArea(f) * EARTH_RADIUS_KM ** 2;
     p.newWorld = d3.geoCentroid(f)[0] < NEW_WORLD_MAX_LON;
     p.bbox = d3.geoBounds(f);
   });
+  return set;
 }
 
 // ---------- 每个年份的归属表 ----------
@@ -96,6 +100,7 @@ const cache = new Map();
 async function loadYear(bm) {
   if (cache.has(bm.year)) return cache.get(bm.year);
   const raw = await d3.json(`${DATA}owners_${bm.year}.json`);
+  const base = await loadProvinceSet(raw.provinces ?? "provinces.json");
 
   const countries = raw.countries.map((c, id) => {
     const p = {
@@ -145,6 +150,7 @@ async function loadYear(bm) {
 
   const result = {
     year: bm.year,
+    set: base,
     owner,
     countries: features,
     byName: new Map(features.map((f) => [f.properties.name, f])),
@@ -223,9 +229,9 @@ function resize() {
 
   zoom.translateExtent([[x0, y0], [x1, y1]]);
   gGraticule.attr("d", path(d3.geoGraticule10()));
-  if (base.coast) gCoast.attr("d", path(base.coast));
-  if (base.provinces) computeProvinceLabels();
+  for (const set of provinceSets.values()) set.then((s) => (s.labels = null));
   if (current) {
+    gCoast.attr("d", path(current.set.coast));
     drawLayer(gLayer, current);
     drawLabels(gLabels, current);
   }
@@ -389,7 +395,7 @@ function provinceAt(event, country) {
   const ll = projection.invert([x, y]);
   if (!ll) return null;
   for (const i of country.provinces) {
-    const f = base.provinces[i];
+    const f = current.set.provinces[i];
     const [[w, s], [e, n]] = f.properties.bbox;
     if (ll[1] < s || ll[1] > n) continue;
     if (w <= e ? ll[0] < w || ll[0] > e : ll[0] < w && ll[0] > e) continue;
@@ -483,17 +489,17 @@ function updateLabelVisibility(g) {
 
 // ---------- 省份名（放大后显示） ----------
 
-let provinceLabels = [];
-
-function computeProvinceLabels() {
-  // 同一个行政区切出来的几块省份同名，只在面积最大的那块上标名字
+// 同一个行政区切出来的几块省份同名，只在面积最大的那块上标名字；
+// 整个国家只有一块的（whole），省份名就是国名，不重复标
+function computeProvinceLabels(set) {
   const best = new Map();
-  for (const f of base.provinces) {
+  for (const f of set.provinces) {
     const p = f.properties;
+    if (p.whole) continue;
     const key = `${p.adm0_a3}|${p.label}`;
     if (!best.has(key) || p.areaKm2 > best.get(key).properties.areaKm2) best.set(key, f);
   }
-  provinceLabels = [...best.values()].map((f) => {
+  set.labels = [...best.values()].map((f) => {
     const [x, y] = path.centroid(largestPolygon(f.geometry));
     const text = f.properties.label;
     const size = Math.min(3.2, (Math.sqrt(path.area(f)) * 0.75) / Math.max(textEm(text), 2));
@@ -507,6 +513,7 @@ function updateProvinceLabels() {
     gProvLabels.selectAll("text").remove();
     return;
   }
+  if (!current.set.labels) computeProvinceLabels(current.set);
   const t = d3.zoomTransform(svg.node());
   const [x0, x1] = [t.invertX(0), t.invertX(width)];
   const [y0, y1] = [t.invertY(0), t.invertY(height)];
@@ -520,7 +527,7 @@ function updateProvinceLabels() {
   });
 
   const visible = [];
-  for (const d of provinceLabels) {
+  for (const d of current.set.labels) {
     if (d.x < x0 || d.x > x1 || d.y < y0 || d.y > y1 || hidden(d.id)) continue;
     const px = d.size * zoomK;
     if (px < 9 || px > 18) continue;
@@ -545,9 +552,9 @@ function showTooltip(event, d) {
   const p = d.properties;
   const zh = zhName(p.name);
   const prov = provinceAt(event, p);
-  gHoverProv.attr("d", prov ? path(prov) : null);
+  gHoverProv.attr("d", prov && !prov.properties.whole ? path(prov) : null);
   tooltip.innerHTML =
-    (prov ? `<span class="prov">${prov.properties.label}</span>` : "") +
+    (prov && !prov.properties.whole ? `<span class="prov">${prov.properties.label}</span>` : "") +
     `<strong>${zh}</strong>` +
     (zh !== p.name ? `<span class="orig">${p.name}</span>` : "") +
     (p.overlord ? `<span class="sub">附属于 ${zhName(p.overlord)}</span>` : "");
@@ -572,6 +579,7 @@ async function setYear(year) {
   loading.hidden = true;
   if (current === data) return;
   current = data;
+  gCoast.attr("d", path(data.set.coast));
 
   // 如果原来选中的国家在这个年份还存在，就保持选中
   if (selected && !data.byName.has(selected)) selected = null;
@@ -667,7 +675,6 @@ d3.select("#bookmarks")
   .on("click", (_, d) => setYear(d.year));
 
 async function init() {
-  await loadBase();
   resize();
   const { year, name } = readHash();
   await setYear(year);
