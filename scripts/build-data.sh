@@ -2,11 +2,13 @@
 # 一键重建全部地图数据
 # 用法：bash scripts/build-data.sh [年份...]
 #   不带参数：重建省份底图 + 所有年份的归属表
-#   带年份：只重建这些年份的归属表（改了 data/overrides.json 之后用这个）
+#   带年份：只重建这些年份的归属表（改了 data/overrides.json 之后用这个），
+#           例如 bash scripts/build-data.sh 769:800 1492
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ALL_YEARS=(1279 1492 1600 1715 1815 1914 1938)
+# "开局年份:数据源年份"：historical-basemaps 没有的年份，用相近年份的数据做底再手工修正
+ALL_YEARS=(769:800 1279 1492 1600 1715 1815 1914 1938)
 BASE=https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson
 mkdir -p data-src
 
@@ -17,7 +19,8 @@ else
   YEARS=("$@")
 fi
 
-for y in "${YEARS[@]}"; do
+for arg in "${YEARS[@]}"; do
+  y="${arg#*:}"
   [ -f "data-src/world_$y.geojson" ] || curl -fsSL -o "data-src/world_$y.geojson" "$BASE/world_$y.geojson"
 done
 

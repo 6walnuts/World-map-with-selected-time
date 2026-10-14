@@ -1,5 +1,7 @@
 // 生成每个年份的"省份 → 国家"归属表。
 // 用法：node scripts/build-owners.mjs <年份...>
+//   年份可以写成"开局年份:数据源年份"，例如 769:800 表示用 800 年的边界数据做底，
+//   再用 overrides.json 里 "769" 的规则修正成 769 年的样子
 //
 // 对每个省份在内部撒若干采样点，看每个点落在 historical-basemaps 的哪个国家里，
 // 得票最多的国家就是该省的主人。没有落进任何国家的点算"无主"。
@@ -10,6 +12,7 @@
 //   { "owner": "Naples", "adm0": "ITA", "regions": ["Campania", "Calabria"] }
 //   { "owner": "Bohemia", "from": "Holy Roman Empire", "adm0": ["CZE", "POL"] }
 //   { "rename": "Manchu Empire", "to": "Republic of China" }
+//   { "owner": "Tibetan Empire", "adm0": "CHN", "bbox": [92, 34, 106, 41] }   // 省份质心落在 [西, 南, 东, 北] 内
 // owner 为 null 表示改为无主；overlord 可指定宗主国；note 写依据，脚本不读。
 import fs from "node:fs";
 import * as d3 from "d3";
@@ -34,7 +37,12 @@ function matches(rule, props, ownerName) {
   const names = asList(rule.names);
   const regions = asList(rule.regions);
   const from = asList(rule.from);
-  if (!adm0 && !names && !regions && !from) return false;
+  const bb = rule.bbox;
+  if (!adm0 && !names && !regions && !from && !bb) return false;
+  if (bb) {
+    const [x, y] = props.centroid;
+    if (x < bb[0] || y < bb[1] || x > bb[2] || y > bb[3]) return false;
+  }
   if (adm0 && !adm0.includes(props.adm0_a3)) return false;
   if (names && !names.includes(props.name) && !names.includes(props.name_zh)) return false;
   if (regions && !regions.includes(props.region)) return false;
@@ -71,6 +79,8 @@ function mulberry32(seed) {
   };
 }
 
+for (const f of provinces) f.properties.centroid = d3.geoCentroid(f);
+
 // 省份内部的采样点：与年份无关，只算一次
 console.log("计算采样点…");
 const samples = provinces.map((f, i) => {
@@ -84,8 +94,9 @@ const samples = provinces.map((f, i) => {
   return pts;
 });
 
-for (const year of years) {
-  const hist = JSON.parse(fs.readFileSync(`data-src/world_${year}.geojson`, "utf8"));
+for (const arg of years) {
+  const [year, source = year] = arg.split(":");
+  const hist = JSON.parse(fs.readFileSync(`data-src/world_${source}.geojson`, "utf8"));
   const polys = hist.features
     .map((f) => {
       // 有的多边形 NAME 是空白，但 SUBJECTO 写了主权国，用它兜底

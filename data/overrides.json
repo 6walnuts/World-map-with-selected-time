@@ -1,4 +1,69 @@
 {
+  "769": [
+    { "rename": "Carolingian Empire", "to": "Francia", "note": "768 年丕平去世，查理（查理曼）与卡洛曼分治法兰克王国，尚未称帝" },
+    { "rename": "Silia", "to": "Silla" },
+    { "rename": "Parhae", "to": "Balhae" },
+    { "rename": "Uyghurs", "to": "Uyghur Khaganate" },
+    { "rename": "Nan Chao", "to": "Nanzhao" },
+    { "rename": "Irlanda", "to": "Irish petty kingdoms" },
+    { "rename": "Japan", "to": "Nara Japan" },
+    { "rename": "Bulgars", "to": "Bulgarian Khanate" },
+
+    { "owner": "Gascony", "overlord": "Francia", "adm0": "FRA", "names": ["Landes", "Gers", "Pyrénées-Atlantiques", "Hautes-Pyrénées"], "note": "769 年加斯科涅公爵卢普斯二世向查理臣服" },
+    { "owner": "Emirate of Córdoba", "from": "Francia", "adm0": "ESP", "names": ["Gerona", "Barcelona"], "note": "赫罗纳 785 年、巴塞罗那 801 年才归法兰克" },
+    { "owner": "Basques", "from": "Francia", "adm0": "ESP", "names": "Navarra", "note": "潘普洛纳一带的巴斯克人" },
+
+    { "owner": "Saxony", "from": "Francia", "adm0": "DEU", "names": ["Niedersachsen", "Bremen", "Hamburg", "Sachsen-Anhalt", "Schleswig-Holstein"], "note": "异教的萨克森人，772–804 年萨克森战争后才被征服（威斯特伐利亚在北威州内，无法单独区分，暂归法兰克）" },
+    { "owner": "Slavonic tribes", "from": "Francia", "adm0": "DEU", "names": ["Sachsen", "Brandenburg", "Mecklenburg-Vorpommern"], "note": "索布人、维莱蒂人、奥博德里特人" },
+    { "owner": "Bavaria", "overlord": "Francia", "from": "Francia", "adm0": "DEU", "names": "Bayern", "note": "塔西洛三世的巴伐利亚公国，788 年才被查理曼废黜" },
+    { "owner": "Bavaria", "overlord": "Francia", "adm0": "AUT", "names": ["Oberösterreich", "Salzburg", "Tirol"] },
+    { "owner": "Carantania", "overlord": "Bavaria", "adm0": "AUT", "names": ["Kärnten", "Steiermark"], "note": "卡兰塔尼亚斯拉夫公国，740 年代起臣属巴伐利亚" },
+    { "owner": "Carantania", "overlord": "Bavaria", "adm0": "SVN", "names": ["Gorenjska", "Koroška", "Savinjska", "Podravska", "Osrednjeslovenska", "Zasavska", "Pomurska"] },
+    { "owner": "Avars", "adm0": "AUT", "names": ["Niederösterreich", "Wien", "Burgenland"], "note": "恩斯河以东为阿瓦尔汗国" },
+
+    { "owner": "Lombard Kingdom", "from": "Francia", "adm0": "ITA", "regions": ["Lombardia", "Piemonte", "Valle d'Aosta", "Liguria", "Veneto", "Friuli-Venezia Giulia", "Trentino-Alto Adige", "Toscana", "Emilia-Romagna", "Marche", "Abruzzo", "Umbria"], "note": "德西德里乌斯的伦巴第王国（含斯波莱托公国），774 年被查理曼吞并" },
+    { "owner": "Lombard Kingdom", "from": "Francia", "adm0": "CHE", "names": "Ticino" },
+    { "owner": "Papal States", "from": "Francia", "adm0": "ITA", "regions": "Lazio", "note": "罗马公国" },
+    { "owner": "Papal States", "adm0": "ITA", "names": ["Ravenna", "Ferrara", "Forlì-Cesena", "Rimini", "Pesaro e Urbino", "Ancona"], "note": "原拉文纳总督区与五城地区，756 年丕平献土" },
+    { "owner": "Byzantine Empire", "adm0": "ITA", "names": "Venezia", "note": "威尼斯公国名义上仍属拜占庭" },
+    { "owner": "Byzantine Empire", "adm0": ["HRV", "SVN"], "names": ["Istarska", "Obalno-kraška"], "note": "伊斯特里亚" },
+    { "owner": "Benevento", "overlord": "Lombard Kingdom", "from": "Lombard duchies", "note": "阿雷基斯二世的贝内文托公国" },
+    { "owner": "Byzantine Empire", "adm0": "ITA", "names": "Napoli", "note": "那不勒斯公国属拜占庭" },
+
+    { "owner": "Slavonic tribes", "from": "Rus' Khaganate", "note": "罗斯汗国要到 9 世纪才出现；此时拉多加刚有诺斯人定居" },
+
+    { "owner": "Abbasid Caliphate", "from": "Aghlabid Emirate", "adm0": ["TUN", "LBY"], "note": "伊夫里基亚为阿拔斯行省，阿格拉布王朝 800 年才建立" },
+    { "owner": "Abbasid Caliphate", "from": "Aghlabid Emirate", "adm0": "DZA", "names": ["El Tarf", "Annaba", "Souk Ahras", "Tébessa", "Guelma", "Skikda", "Constantine", "Mila", "Oum el Bouaghi", "Khenchela", "Batna", "Biskra", "Jijel", "Sétif", "El Oued"] },
+    { "owner": "Berber tribes", "from": "Aghlabid Emirate", "note": "马格里布中部为伊巴德派等柏柏尔部落（鲁斯塔姆王朝 777 年才建立）" },
+    { "owner": "Barghawata", "from": "Idrisid Caliphate", "adm0": "MAR", "names": ["Rabat - Salé - Zemmour - Zaer", "Chaouia - Ouardigha", "Grand Casablanca", "Doukkala - Abda", "Tadla - Azilal"], "note": "大西洋沿岸的巴尔加瓦塔；伊德里斯王朝 788 年才建立" },
+    { "owner": "Midrarids", "from": "Idrisid Caliphate", "adm0": "MAR", "names": "Meknès - Tafilalet", "note": "757 年建立于西吉勒马萨" },
+    { "owner": "Berber tribes", "from": "Idrisid Caliphate" },
+
+    { "owner": "Karluks", "adm0": ["KGZ", "KAZ"], "names": ["Ysyk-Köl", "Naryn", "Chuy", "Talas", "Bishkek", "Jalal-Abad", "Almaty", "Almaty City", "Zhambyl"], "note": "766 年葛逻禄占据碎叶" },
+    { "owner": "Oghuz Yabgu", "from": null, "adm0": "KAZ", "names": ["Mangghystau", "Qyzylorda", "Aqtöbe", "South Kazakhstan", "Atyrau"] },
+    { "owner": "Kimek", "from": null, "adm0": "KAZ", "names": ["North Kazakhstan", "Qostanay", "Aqmola", "Astana", "Pavlodar", "Qaraghandy", "East Kazakhstan"] },
+
+    { "owner": "Tang Empire", "adm0": "CHN", "names": "Xinjiang", "bbox": [73, 36, 96, 43.5], "note": "安西四镇与北庭、西州仍由唐军坚守（北庭 790 年、安西约 792 年才陷落）" },
+    { "owner": "Karluks", "adm0": "CHN", "names": "Xinjiang", "bbox": [73, 43.5, 87, 50] },
+    { "owner": "Tibetan Empire", "adm0": "CHN", "names": "Xinjiang", "bbox": [73, 30, 96, 36] },
+    { "owner": "Tibetan Empire", "adm0": "CHN", "names": "Gansu", "bbox": [97, 30, 106.2, 43], "note": "763–766 年吐蕃尽取陇右与河西（凉州 764、甘肃二州 766）" },
+    { "owner": "Tang Empire", "adm0": "CHN", "names": "Gansu", "bbox": [92, 38, 97, 43], "note": "瓜州 776 年、沙州（敦煌）786 年才陷落" },
+    { "owner": "Tibetan Empire", "adm0": "CHN", "names": "Ningxia", "bbox": [104, 35, 107, 36.6], "note": "原州 763 年陷蕃" },
+    { "owner": "Nanzhao", "overlord": "Tibetan Empire", "from": "Tibetan Empire", "adm0": "CHN", "names": "Yunnan", "note": "南诏 752–794 年臣属吐蕃，被封为“赞普钟”" },
+    { "owner": "Nanzhao", "overlord": "Tibetan Empire", "from": "Nanzhao" },
+    { "owner": "Balhae", "from": "Uyghur Khaganate", "adm0": "CHN", "names": "Jilin" },
+    { "owner": "Shiwei", "from": ["Uyghur Khaganate", "Tungus"], "adm0": "CHN", "names": ["Heilongjiang", "Inner Mongol"], "bbox": [115, 46, 127, 54], "note": "室韦诸部" },
+    { "owner": "Heishui Mohe", "from": ["Uyghur Khaganate", "Tungus"], "adm0": "CHN", "names": "Heilongjiang", "bbox": [127, 44, 136, 54], "note": "黑水靺鞨" },
+    { "owner": "Khitans", "overlord": "Uyghur Khaganate", "adm0": "CHN", "names": ["Liaoning", "Inner Mongol"], "bbox": [117, 40, 122.3, 45.5], "note": "契丹、奚在安史之乱后脱离唐朝，臣属回鹘" },
+    { "owner": "Balhae", "from": "Tang Empire", "adm0": "CHN", "names": "Liaoning", "bbox": [122.3, 38, 126, 43], "note": "安东都护府撤废后辽东不再由唐控制，此处近似归入渤海" },
+
+    { "owner": "Lulong Circuit", "overlord": "Tang Empire", "adm0": "CHN", "names": ["Beijing", "Tianjin", "Hebei"], "bbox": [113, 39.2, 120, 42.7], "note": "河朔三镇之卢龙：安史降将割据，自署官吏、不输贡赋" },
+    { "owner": "Chengde Circuit", "overlord": "Tang Empire", "adm0": "CHN", "names": "Hebei", "bbox": [113, 37.4, 118, 39.2], "note": "河朔三镇之成德（李宝臣）" },
+    { "owner": "Weibo Circuit", "overlord": "Tang Empire", "adm0": "CHN", "names": "Hebei", "bbox": [113, 35, 118, 37.4], "note": "河朔三镇之魏博（田承嗣）" },
+    { "owner": "Weibo Circuit", "overlord": "Tang Empire", "adm0": "CHN", "names": "Henan", "bbox": [113.5, 35.4, 116, 36.5] },
+    { "owner": "Pinglu Circuit", "overlord": "Tang Empire", "from": "Tang Empire", "adm0": "CHN", "names": "Shandong", "note": "平卢淄青（李正己），765 年后实际割据" }
+  ],
+
   "1279": [
     { "owner": "Goryeo", "overlord": "Great Khanate", "adm0": ["KOR", "PRK"], "note": "高丽在 1270 年后成为元朝的驸马国/附属国，并未被直接吞并" }
   ],

@@ -372,7 +372,9 @@ function largestPolygon(g) {
   let bestArea = -1;
   for (const coords of g.coordinates) {
     const poly = { type: "Polygon", coordinates: coords };
-    const a = d3.geoArea(poly);
+    // 绕向反了的小多边形会被算成"整个地球减去它"，取补
+    const raw = d3.geoArea(poly);
+    const a = raw > 2 * Math.PI ? 4 * Math.PI - raw : raw;
     if (a > bestArea) {
       bestArea = a;
       best = poly;
