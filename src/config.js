@@ -1,9 +1,10 @@
 // 开局时间点（书签）。year 必须在 public/data/ 下有对应的 world_<year>.json
 export const BOOKMARKS = [
   {
-    year: 769,
-    title: "查理曼的崛起",
-    desc: "安史之乱刚刚平定，河朔三镇割据一方，吐蕃尽取河西陇右；阿拔斯王朝新都巴格达落成，倭马亚遗孤却在科尔多瓦自立。西方，查理与卡洛曼兄弟方才继承法兰克王国，伦巴第、萨克森、巴伐利亚尚未臣服。",
+    year: 800,
+    title: "查理曼加冕",
+    desc: "圣诞节，查理曼在罗马加冕为皇帝，伦巴第、萨克森、巴伐利亚已尽归法兰克；哈伦·拉希德治下的巴格达盛极一时，伊夫里基亚却已世袭自治。东方，大唐河朔三镇与淮西相继抗命，吐蕃尽据河陇与西域，南诏重归唐廷。",
+    // 地理大发现之前，美洲对旧大陆而言是未知之地
     hideNewWorld: true,
   },
   {
@@ -120,11 +121,11 @@ export const FIXED_COLORS = {
   Khazars: "#a0874c",
   Silla: "#6a8fb5",
   Balhae: "#8a6fb0",
-  Avars: "#b0705a",
   "Bulgarian Khanate": "#4f7a5a",
   Mercia: "#a83a3a",
   Asturias: "#c9b44a",
-  "Nara Japan": "#c94a4a",
+  "Heian Japan": "#c94a4a",
+  "Carolingian Empire": "#3f6fa8",
   "Northern Yuan": "#8c7a52",
   "Jurchen tribes": "#7d6a8f",
   "Burgundian Netherlands": "#b07a3a",
@@ -328,7 +329,13 @@ export const ZH_NAMES = {
   Nanzhao: "南诏",
   Silla: "新罗",
   Balhae: "渤海国",
-  "Nara Japan": "日本（奈良时代）",
+  "Heian Japan": "日本（平安时代）",
+  "Huaixi Circuit": "淮西节度使",
+  "Rustamid Imamate": "鲁斯塔姆伊玛目国",
+  "Aghlabid Emirate": "阿格拉布王朝",
+  "Idrisid Caliphate": "伊德里斯王朝",
+  "Carolingian Empire": "加洛林帝国",
+  "Rus' Khaganate": "罗斯汗国",
   Khazars: "可萨汗国",
   "Bulgarian Khanate": "保加利亚汗国",
   "Volga Bulgars": "伏尔加保加尔",
