@@ -87,7 +87,7 @@ npm run build    # 打包到 dist/，可直接部署到任意静态托管
 [CHGIS](https://chgis.fas.harvard.edu/data/chgis/v6/) 的州府时间序列点能提供 800 年存在的全部 321 个州府治所（手工整理的约 260 个）。CHGIS 仅限学术非商业使用、不得再分发，所以仓库里不含它的数据和由它生成的地图，需要自己下载后在本地生成：
 
 1. 从 Harvard Dataverse 下载 **V6 Time Series Prefecture Points**，解压出 `v6_time_pref_pts_utf_wgs84.shp`
-2. `node scripts/import-chgis.mjs path/to/v6_time_pref_pts_utf_wgs84.shp 800`（输出到被 git 忽略的 `data-local/`）
+2. `node scripts/import-chgis.mjs path/to/v6_time_pref_pts_utf_wgs84.shp 800 [path/to/v6_time_pref_pgn_utf_wgs84.shp]`（输出到被 git 忽略的 `data-local/`）。第三个参数可选：**Time Series Prefecture Polygons** 里 800 年有约 130 个州府的真实边界（河东、河北、江南、山南、湖南江西等），有边界的州直接用真实州界，归属也按州界划分，其余地方仍按治所划分
 3. `bash scripts/build-data.sh 800`：发现 `data-local/chgis_seats_800.json` 就优先使用它，手工治所里与之相距 40 公里内的自动去掉
 
 注意第 3 步会改写 `public/data/provinces_800.json` 与 `owners_800.json`，这两个文件此时含 CHGIS 派生数据，不要提交到公开仓库。

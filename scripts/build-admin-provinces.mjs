@@ -141,11 +141,42 @@ function voronoiSplit(territory, seats) {
 }
 
 const features = [];
+
+// ---------- 真实边界（本地 CHGIS 州府多边形，可选） ----------
+// 有真实边界的州府直接用它：归属看州境内一点落在哪国，并从各国疆域里挖掉这块，
+// 剩下的部分再按治所 Voronoi 划分。这样藩镇与唐的分界也会沿着真实州界。
+const PGN = `data-local/chgis_pgn_${year}.json`;
+let realUnion = null;
+if (fs.existsSync(PGN)) {
+  const land = merge(baseProvinces.map((_, i) => i));
+  const real = [];
+  for (const f of JSON.parse(fs.readFileSync(PGN, "utf8")).features) {
+    if (!f.geometry) continue;
+    const [lon, lat] = turf.pointOnFeature(f).geometry.coordinates;
+    const i = seatProvince(lon, lat);
+    const o = i < 0 ? -1 : owners.owner[i];
+    if (o < 0) continue;
+    const clipped = turf.intersect(turf.featureCollection([f, turf.feature(land)]));
+    if (!clipped) continue;
+    real.push({ type: "Feature", properties: { label: f.properties.NAME_CH, o }, geometry: clipped.geometry });
+  }
+  realUnion = turf.union(turf.featureCollection(real));
+  features.push(...real);
+  console.log(`  使用本地真实州界 ${PGN}：${real.length} 个`);
+}
+
+const insideReal = (s) => realUnion && turf.booleanPointInPolygon([s.lon, s.lat], realUnion);
+
 for (const [key, ids] of byOwner) {
-  const territory = merge(ids);
+  let territory = merge(ids);
+  if (realUnion) {
+    const rest = turf.difference(turf.featureCollection([turf.feature(territory), realUnion]));
+    if (!rest) continue; // 整个疆域都被真实州界覆盖
+    territory = rest.geometry;
+  }
   const o = typeof key === "number" ? key : -1;
   const ownerName = o >= 0 ? owners.countries[o].name : null;
-  const seats = seatsByOwner.get(o) ?? [];
+  const seats = (seatsByOwner.get(o) ?? []).filter((s) => !insideReal(s));
   if (o >= 0 && seats.length >= 2) {
     for (const { seat, geometry } of voronoiSplit(territory, seats)) {
       features.push({ type: "Feature", properties: { label: seat.name, o }, geometry });
