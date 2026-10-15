@@ -645,186 +645,21 @@ kbd {
   }
 }
 
-/* ---------- 中国视图 ---------- */
-
-.china-terrain {
-  opacity: 0.95;
-}
-
-/* 中国视图里其他国家半透明，让地形透出来 */
-.china-mode .year-layer .country {
-  fill-opacity: 0.3;
-}
-
-.china-mode .year-layer .unclaimed {
-  fill-opacity: 0.25;
-}
-
-.china-mode .province-lines {
-  opacity: 0.35;
-}
-
-.china-prov {
-  fill-opacity: 0.4;
-  stroke: rgba(50, 34, 16, 0.35);
-  stroke-width: 0.5;
-  vector-effect: non-scaling-stroke;
-  cursor: pointer;
-}
-
-.china-prov:hover {
-  fill-opacity: 0.6;
-}
-
-.china-prov.dimmed {
-  fill-opacity: 0.12;
-}
-
-.circuit-borders {
-  fill: none;
-  stroke: rgba(48, 28, 12, 0.85);
-  stroke-width: 1.6;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-  pointer-events: none;
-}
-
-.circuit-selected {
-  fill: rgba(255, 236, 170, 0.18);
-  stroke: var(--gold);
-  stroke-width: 3;
-  vector-effect: non-scaling-stroke;
-  pointer-events: none;
-}
-
-.china-hover {
-  fill: rgba(255, 245, 210, 0.22);
-  stroke: rgba(255, 245, 210, 0.9);
-  stroke-width: 1.2;
-  vector-effect: non-scaling-stroke;
-  pointer-events: none;
-}
-
-.china-water {
-  pointer-events: none;
-}
-
-.china-water .river {
-  fill: none;
-  stroke: #43788f;
-  stroke-width: 1.1;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-  opacity: 0.85;
-}
-
-.china-water .river.major {
-  stroke-width: 2.2;
-}
-
-.china-water .canal {
-  fill: none;
-  stroke: #2f6f8f;
-  stroke-width: 1.6;
-  stroke-dasharray: 5 3;
-  vector-effect: non-scaling-stroke;
-}
-
-.china-water .lake {
-  fill: #6f9fae;
-  stroke: #43788f;
-  stroke-width: 0.6;
-  vector-effect: non-scaling-stroke;
-}
-
-.china-screen {
-  pointer-events: none;
-}
-
-.geo-label {
-  font-family: var(--serif);
-  font-style: italic;
-  text-anchor: middle;
-  dominant-baseline: central;
-  paint-order: stroke;
-  stroke: rgba(240, 228, 200, 0.6);
-  stroke-width: 2.5px;
-}
-
-.geo-label.mountain {
-  fill: #5a4029;
-  letter-spacing: 0.35em;
-  font-weight: 700;
-}
-
-.geo-label.land {
-  fill: rgba(80, 60, 36, 0.75);
-  letter-spacing: 0.2em;
-}
-
-.geo-label.river {
-  fill: #2f6680;
-}
-
-.wall .wall-outer {
-  fill: #eadfc4;
-  stroke: #3a2614;
-  stroke-width: 1.6;
-  stroke-dasharray: 2.2 1.2; /* 垛口 */
-}
-
-.wall.town .wall-outer {
-  stroke-width: 1.1;
-  stroke-dasharray: 1.6 1;
-}
-
-.wall .wall-gate {
-  fill: #3a2614;
-}
-
-.wall .wall-inner {
-  fill: #c9a24a;
-  stroke: #3a2614;
-  stroke-width: 1;
-}
-
-.wall-name {
-  font-family: var(--serif);
-  font-size: 13px;
-  font-weight: 700;
-  fill: #2a1a0a;
-  paint-order: stroke;
-  stroke: rgba(250, 240, 215, 0.85);
-  stroke-width: 3px;
-}
-
-.label.circuit {
-  letter-spacing: 0.15em;
-  fill: rgba(40, 22, 8, 0.85);
-}
-
-.china-clouds {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
 /* 侧边栏 */
-#panel-china .ruler-line {
+#tang-panel .ruler-line {
   margin-top: 6px;
   color: var(--gold);
   font-size: 15px;
   letter-spacing: 0.1em;
 }
 
-#panel-china h3 {
+#tang-panel h3 {
   margin-top: 20px;
 }
 
 .type-legend,
 .foreign-list,
-#panel-china .chips {
+#tang-panel .chips {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -908,13 +743,13 @@ kbd {
   color: var(--ink-dim);
 }
 
-#panel-china .chips {
+#tang-panel .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-#panel-china .chips li {
+#tang-panel .chips li {
   padding: 1px 6px;
   font-size: 12px;
   border: 1px solid rgba(107, 85, 51, 0.6);
@@ -959,6 +794,290 @@ kbd {
 .rel.neutral { background: #6b5a3a; }
 .rel.bad { background: #8a3a2f; }
 
-#china-exit {
-  margin-top: 18px;
+/* ---------- 大唐 2.5D 场景 ---------- */
+
+#tang-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: #1c1610;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+#tang-screen.shown {
+  opacity: 1;
+}
+
+#tang-screen[hidden] {
+  display: none;
+}
+
+.tang-bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 20px;
+  background: linear-gradient(#4a1f17, #2a120d);
+  border-bottom: 2px solid #8a6a36;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+  z-index: 2;
+}
+
+.tang-title {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-right: auto;
+}
+
+.tang-name {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--gold);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.tang-era {
+  color: var(--ink-dim);
+  letter-spacing: 0.15em;
+}
+
+.tang-tools {
+  display: flex;
+  gap: 8px;
+}
+
+.tang-btn {
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--gold-dim);
+  border-radius: 2px;
+  color: var(--ink);
+  letter-spacing: 0.08em;
+}
+
+.tang-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.tang-btn.off {
+  opacity: 0.5;
+}
+
+.tang-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  min-height: 0;
+}
+
+#tang-view {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+#tang-view canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+#tang-view canvas:active {
+  cursor: grabbing;
+}
+
+#tang-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tl {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  font-family: var(--serif);
+  line-height: 1;
+  will-change: transform;
+}
+
+.tl.circuit {
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #2b1708;
+  text-shadow: 0 0 3px rgba(250, 238, 205, 0.95), 0 0 8px rgba(250, 238, 205, 0.6);
+  opacity: 0.88;
+  transition: opacity 0.2s;
+}
+
+.tl.circuit.dim {
+  opacity: 0.25;
+}
+
+.tl.circuit.sel {
+  color: #6b1d10;
+  opacity: 1;
+}
+
+.tl.country {
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  color: rgba(40, 24, 10, 0.75);
+  text-shadow: 0 0 4px rgba(240, 228, 200, 0.8);
+}
+
+.tl.city {
+  font-weight: 700;
+  color: #2a1a0a;
+  padding-left: 4px;
+  transform-origin: 0 100%;
+  text-shadow: 0 0 3px rgba(250, 240, 215, 1), 0 0 6px rgba(250, 240, 215, 0.8);
+  margin-top: -1.2em;
+}
+
+.tl.city.capital {
+  color: #7a1c10;
+  font-size: 15px;
+  letter-spacing: 0.15em;
+}
+
+.tl.city.foreign {
+  color: #3b2a1a;
+  font-style: italic;
+}
+
+.tl.geo {
+  font-style: italic;
+  text-shadow: 0 0 3px rgba(240, 228, 200, 0.75);
+}
+
+.tl.geo.mountain {
+  color: #4f3622;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+}
+
+.tl.geo.land {
+  color: rgba(70, 52, 30, 0.8);
+  letter-spacing: 0.2em;
+}
+
+.tl.geo.river {
+  color: #1f5a74;
+}
+
+#tang-tip {
+  position: absolute;
+  pointer-events: none;
+  padding: 6px 10px;
+  background: rgba(30, 22, 14, 0.92);
+  border: 1px solid var(--gold-dim);
+  font-size: 13px;
+  max-width: 280px;
+}
+
+#tang-tip .prov {
+  display: block;
+  color: var(--ink-dim);
+  font-size: 12px;
+}
+
+#tang-tip strong {
+  display: block;
+  color: var(--gold);
+}
+
+#tang-tip .sub {
+  display: block;
+  color: var(--ink-dim);
+  font-size: 12px;
+}
+
+#tang-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  color: var(--gold);
+  background: #1c1610;
+}
+
+#tang-loading[hidden] {
+  display: none;
+}
+
+.tang-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  background: rgba(20, 14, 8, 0.6);
+  pointer-events: none;
+}
+
+#tang-panel {
+  padding: 18px 20px;
+  overflow-y: auto;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.35)),
+    var(--panel);
+  border-left: 2px solid var(--panel-edge);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
+}
+
+#tang-panel .ruler-line {
+  margin-top: 0;
+  font-size: 17px;
+}
+
+#tang-panel .chips li.on {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+#tang-panel .fly {
+  margin-top: 12px;
+  width: 100%;
+}
+
+#tang-panel .foreign {
+  cursor: pointer;
+}
+
+#tang-panel .foreign:hover strong {
+  color: var(--gold);
+}
+
+@media (max-width: 760px) {
+  .tang-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 38vh;
+  }
+
+  #tang-panel {
+    border-left: none;
+    border-top: 2px solid var(--panel-edge);
+  }
+
+  .tang-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 16px;
+  }
+
+  .tang-hint {
+    display: none;
+  }
 }

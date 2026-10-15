@@ -446,6 +446,7 @@ let panTimer = null;
 
 window.addEventListener("keydown", (e) => {
   if (e.target.closest?.("input, textarea")) return;
+  if (china.active) return; // 大唐场景打开时，键盘交给 tang3d.js
   const key = e.key.toLowerCase();
   if (key === "escape") {
     if (!china.onEscape()) select(null);

@@ -34,7 +34,6 @@
     </main>
 
     <aside id="panel">
-      <div id="panel-china" hidden></div>
       <div id="panel-empty">
         <div class="era-year" id="era-year"></div>
         <div class="era-title" id="era-title"></div>
@@ -69,6 +68,30 @@
     </aside>
 
     <div id="toast" hidden></div>
+
+    <!-- 大唐 2.5D 场景：点击世界地图上的大唐或其藩镇进入 -->
+    <section id="tang-screen" hidden>
+      <header class="tang-bar">
+        <button id="tang-back" class="tang-btn">← 返回天下</button>
+        <div class="tang-title">
+          <span class="tang-name">大唐</span>
+          <span class="tang-era">贞元十六年 · 公元 800 年</span>
+        </div>
+        <div class="tang-tools">
+          <button id="tang-reset" class="tang-btn" title="回到全景">⟲ 全景</button>
+          <button id="tang-clouds" class="tang-btn" title="显示或隐藏云">☁ 云</button>
+        </div>
+      </header>
+      <div class="tang-body">
+        <div id="tang-view">
+          <div id="tang-labels"></div>
+          <div id="tang-tip" hidden></div>
+          <div id="tang-loading">正在铺设山河…</div>
+          <div class="tang-hint">左键拖动平移 · 右键拖动旋转/俯仰 · 滚轮缩放 · WASD 平移 · Q/E 旋转 · Esc 返回</div>
+        </div>
+        <aside id="tang-panel" class="china-panel"></aside>
+      </div>
+    </section>
 
     <footer id="credit">
       边界数据：<a href="https://github.com/aourednik/historical-basemaps" target="_blank" rel="noopener">historical-basemaps</a>
