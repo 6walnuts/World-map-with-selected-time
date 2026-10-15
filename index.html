@@ -50,11 +50,16 @@
         <h2 id="c-name"></h2>
         <div class="c-orig" id="c-orig"></div>
         <dl class="stats">
-          <dt>宗主 / 所属</dt><dd id="c-overlord"></dd>
+          <dt id="c-overlord-label">宗主</dt><dd id="c-overlord"></dd>
+          <dt>首都</dt><dd id="c-capital"></dd>
           <dt>省份数</dt><dd id="c-provinces"></dd>
           <dt>领土面积</dt><dd id="c-area"></dd>
           <dt>面积排名</dt><dd id="c-rank"></dd>
         </dl>
+        <div id="c-subjects-block" hidden>
+          <h3>附庸与共主邦联</h3>
+          <ul id="c-subjects" class="chips"></ul>
+        </div>
         <h3>邻国</h3>
         <ul id="c-neighbors"></ul>
         <button id="play" class="play">以此国开局</button>

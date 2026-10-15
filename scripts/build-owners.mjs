@@ -12,6 +12,8 @@
 //   { "owner": "Naples", "adm0": "ITA", "regions": ["Campania", "Calabria"] }
 //   { "owner": "Bohemia", "from": "Holy Roman Empire", "adm0": ["CZE", "POL"] }
 //   { "rename": "Manchu Empire", "to": "Republic of China" }
+//   { "vassal": "Naples", "of": "Spain" }               // 只改从属关系，不动领土
+//   { "union": "Aragón", "with": "Castille" }           // 共主邦联（同一君主统治的两国）
 //   { "owner": "Tibetan Empire", "adm0": "CHN", "bbox": [92, 34, 106, 41] }   // 省份质心落在 [西, 南, 东, 北] 内
 // owner 为 null 表示改为无主；overlord 可指定宗主国；note 写依据，脚本不读。
 import fs from "node:fs";
@@ -149,6 +151,17 @@ for (const arg of years) {
   // 手工修正，后面的规则覆盖前面的
   let fixed = 0;
   for (const rule of overrides[year] ?? []) {
+    if (rule.vassal || rule.union) {
+      const name = rule.vassal ?? rule.union;
+      const c = countries.find((c) => c.name === name);
+      if (!c) console.warn(`  ${year}: 找不到国家 ${name}`);
+      else {
+        c.overlord = rule.of ?? rule.with;
+        if (rule.union) c.relation = "union";
+        else delete c.relation;
+      }
+      continue;
+    }
     if (rule.rename) {
       const c = countries.find((c) => c.name === rule.rename);
       if (!c) console.warn(`  ${year}: 找不到要改名的国家 ${rule.rename}`);
@@ -168,6 +181,19 @@ for (const arg of years) {
     });
     if (!n) console.warn(`  ${year}: 规则没有匹配到任何省份 ${JSON.stringify(rule)}`);
     fixed += n;
+  }
+
+  // 原数据里不少殖民地只在名字里写了宗主，如 "Cuba (Spain)"、"Algeria (France)"
+  const ALIAS = { UK: "United Kingdom", GB: "United Kingdom", Dutch: "Netherlands", Danemark: "Denmark" };
+  for (const c of countries) {
+    if (c.overlord) continue;
+    const m = c.name.match(/\(([^()]+)\)$/);
+    if (!m) continue;
+    const o = ALIAS[m[1]] ?? m[1];
+    // 括号里的宗主名可能与当年的国名略有出入，有同名或以之开头的国家就用它；
+    // 括号里不是当年存在的国家（如 "Tekohá (Guarani)" 是族名别称）就不算殖民地
+    const hit = countries.find((x) => x.name === o) ?? countries.find((x) => x !== c && x.name.startsWith(o + " "));
+    if (hit) c.overlord = hit.name;
   }
 
   // 被修正规则清空的国家不再输出

@@ -55,6 +55,7 @@
   ],
 
   "1492": [
+    { "union": "Aragón", "with": "Castille", "note": "1479 年起天主教双王共治，卡斯蒂利亚与阿拉贡为共主邦联" },
     { "owner": "Northern Yuan", "adm0": "MNG", "note": "1492 年蒙古高原是达延汗治下的北元，不是察合台汗国" },
     { "owner": "Northern Yuan", "adm0": "CHN", "names": "Inner Mongol", "from": "Chagatai Khanate", "note": "漠南蒙古同属北元" },
     { "owner": "Northern Yuan", "adm0": "RUS", "names": ["Buryat", "Chita", "Irkutsk"], "from": "Chagatai Khanate", "note": "贝加尔湖周边属蒙古势力范围" },
@@ -106,6 +107,11 @@
   ],
 
   "1600": [
+    { "union": "Portugal", "with": "Spain", "note": "1580–1640 年伊比利亚联盟，西班牙国王兼任葡萄牙国王" },
+    { "vassal": "Naples", "of": "Spain", "note": "那不勒斯王国由西班牙总督治理" },
+    { "vassal": "Sicily", "of": "Spain", "note": "西西里王国由西班牙总督治理" },
+    { "vassal": "Sardinia", "of": "Spain", "note": "撒丁王国由西班牙总督治理" },
+    { "vassal": "Habsburg Netherlands", "of": "Spain", "note": "西属尼德兰" },
     { "owner": "Northern Yuan", "adm0": "MNG", "note": "喀尔喀与察哈尔诸部（北元）" },
     { "owner": "Oirat Confederation", "adm0": "MNG", "names": ["Hovd", "Uvs", "Bayan-Ölgiy", "Govi-Altay", "Dzavhan"], "note": "蒙古西部属瓦剌" },
     { "owner": "Northern Yuan", "adm0": "CHN", "names": "Inner Mongol", "from": "central Asian khanates" },
@@ -116,7 +122,13 @@
     { "owner": "Oirat Confederation", "adm0": "RUS", "from": "central Asian khanates", "names": ["Tuva", "Gorno-Altay"] }
   ],
 
+  "1715": [
+    { "union": "Hanover", "with": "United Kingdom", "note": "1714 年汉诺威选侯乔治继承英国王位，两国共主" }
+  ],
+
   "1815": [
+    { "union": "Hanover", "with": "United Kingdom of Great Britain and Ireland", "note": "英国与汉诺威共主（至 1837 年）" },
+    { "union": "Luxembourg", "with": "United Kingdom of Netherlands", "note": "维也纳会议后卢森堡大公国由尼德兰国王兼领" },
     { "owner": "United Kingdom of Netherlands", "adm0": "BEL", "note": "维也纳会议将原奥属尼德兰并入尼德兰联合王国（原数据误标为奥地利）" }
   ],
 

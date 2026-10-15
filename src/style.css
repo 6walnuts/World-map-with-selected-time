@@ -248,6 +248,37 @@ button {
   opacity: 0;
 }
 
+.city {
+  pointer-events: none;
+}
+
+.city rect {
+  fill: var(--gold);
+  stroke: #2a1d0c;
+  stroke-width: 1.2;
+}
+
+.city circle {
+  fill: #f1e6cc;
+  stroke: #2a1d0c;
+  stroke-width: 1;
+}
+
+.city-name {
+  font-family: var(--serif);
+  font-size: 11px;
+  fill: #1f150a;
+  paint-order: stroke;
+  stroke: rgba(250, 240, 215, 0.8);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.city.capital .city-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .province-label {
   font-family: var(--serif);
   font-style: italic;
@@ -482,6 +513,7 @@ kbd {
   margin: 0 0 8px;
 }
 
+#c-subjects,
 #c-neighbors {
   list-style: none;
   margin: 0 0 20px;
@@ -491,6 +523,7 @@ kbd {
   gap: 6px;
 }
 
+#c-subjects li,
 #c-neighbors li {
   display: flex;
   align-items: center;
@@ -503,6 +536,7 @@ kbd {
   cursor: pointer;
 }
 
+#c-subjects li:hover,
 #c-neighbors li:hover {
   border-color: var(--gold);
 }

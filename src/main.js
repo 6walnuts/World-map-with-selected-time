@@ -41,17 +41,61 @@ function baseColor(name) {
   return FIXED_COLORS[name] ?? hashColor(name);
 }
 
-// 附庸 / 殖民地用宗主国颜色的浅色版，类似 P 社的殖民国家
-function countryColor(c) {
-  if (c.unorganized) return "#cdbf98";
-  if (FIXED_COLORS[c.name]) return FIXED_COLORS[c.name];
-  if (c.overlord && !NOMINAL_OVERLORDS.has(c.overlord)) return d3.interpolateRgb(baseColor(c.overlord), "#f4ecd8")(0.35);
-  return hashColor(c.name);
+// 附庸、殖民地、共主邦联用宗主色的近似色，类似 P 社的殖民国家和附庸：
+// 同一宗主下的几个附庸按顺序各偏一点色相和明度，彼此仍能分清；
+// 共主邦联比附庸更接近宗主色。神圣罗马帝国这类名义宗主不染色。
+const isRealOverlord = (c) => c.overlord && !NOMINAL_OVERLORDS.has(c.overlord);
+
+function assignColors(countries) {
+  const byName = new Map(countries.map((c) => [c.name, c]));
+  const siblings = new Map();
+  for (const c of countries) {
+    if (!isRealOverlord(c) || c.unorganized) continue;
+    if (!siblings.has(c.overlord)) siblings.set(c.overlord, []);
+    siblings.get(c.overlord).push(c);
+  }
+  for (const list of siblings.values()) {
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    list.forEach((c, i) => (c.siblingIndex = i));
+  }
+
+  const colorOf = (c, depth = 0) => {
+    if (c.color) return c.color;
+    if (c.unorganized) return (c.color = "#cdbf98");
+    if (isRealOverlord(c) && depth < 4) {
+      const lord = byName.get(c.overlord);
+      const base = d3.hsl(lord ? colorOf(lord, depth + 1) : baseColor(c.overlord));
+      const i = c.siblingIndex ?? 0;
+      if (c.relation === "union") {
+        // 共主邦联：几乎同色，只轻微偏一点色相、提亮一点
+        base.h += i % 2 ? 5 : -5;
+        base.l = Math.min(0.82, base.l + 0.05);
+      } else {
+        // 附庸：色相在 ±14° 内交替偏移，明度分三档递增
+        base.h += ((i % 5) - 2) * 7;
+        base.l = Math.min(0.82, base.l + 0.1 + (Math.floor(i / 5) % 3) * 0.06);
+        base.s *= 0.85;
+      }
+      return (c.color = base.formatHex());
+    }
+    return (c.color = FIXED_COLORS[c.name] ?? hashColor(c.name));
+  };
+  for (const c of countries) colorOf(c);
 }
+
+const relationText = (p) =>
+  p.relation === "union" ? `与${zhName(p.overlord)}共主` : `附属于${zhName(p.overlord)}`;
 
 // ---------- 名称 ----------
 
-const zhName = (name) => ZH_NAMES[name] ?? name;
+// "Cuba (Spain)" 这类殖民地名显示为"古巴（西属）"
+const COLONIAL = { Spain: "西", France: "法", Portugal: "葡", Italy: "意", "United Kingdom": "英", UK: "英", Netherlands: "荷", Belgium: "比", Dutch: "荷", Denmark: "丹", Danemark: "丹", GB: "英" };
+function zhName(name) {
+  if (ZH_NAMES[name]) return ZH_NAMES[name];
+  const m = name?.match(/^(.+?) \(([^()]+)\)$/);
+  if (m && COLONIAL[m[2]]) return `${ZH_NAMES[m[1]] ?? m[1]}（${COLONIAL[m[2]]}属）`;
+  return name;
+}
 
 // 估算文字宽度（以 em 计）：中文约 1em，拉丁字母约 0.62em
 function textEm(s) {
@@ -107,6 +151,7 @@ function buildProvinceSet(topo) {
 // ---------- 每个年份的归属表 ----------
 
 const cache = new Map();
+const citiesPromise = d3.json(`${DATA}cities.json`);
 
 async function loadYear(bm) {
   if (cache.has(bm.year)) return cache.get(bm.year);
@@ -118,13 +163,14 @@ async function loadYear(bm) {
       id,
       name: c.name,
       overlord: c.overlord ?? null,
+      relation: c.relation ?? null,
       unorganized: UNORGANIZED_RE.test(c.name),
       provinces: [],
       areaKm2: 0,
     };
-    p.color = countryColor(p);
     return p;
   });
+  assignColors(countries);
 
   // 新大陆隐藏时，那些省份一律视为"未知之地"
   const owner = raw.owner.map((o, i) =>
@@ -159,9 +205,32 @@ async function loadYear(bm) {
     .sort((a, b) => b.properties.areaKm2 - a.properties.areaKm2);
   ranked.forEach((f, i) => (f.properties.rank = i + 1));
 
+  // 首都与重要城市：按所在省份判断属于哪国
+  const cityData = (await citiesPromise)[bm.year] ?? { capitals: [], cities: [] };
+  const provinceOf = (lon, lat) => {
+    for (const f of base.provinces) {
+      const [[w, so], [e, n]] = f.properties.bbox;
+      if (lat < so || lat > n || lon < w || lon > e) continue;
+      if (d3.geoContains(f, [lon, lat])) return f.properties.index;
+    }
+    return -1;
+  };
+  const cities = [];
+  for (const [kind, list] of [["capital", cityData.capitals], ["city", cityData.cities]]) {
+    for (const [name, lon, lat] of list) {
+      const i = provinceOf(lon, lat);
+      const o = i < 0 ? -1 : owner[i];
+      if (o === -2) continue; // 未知之地
+      const country = o >= 0 ? countries[o] : null;
+      cities.push({ name, lon, lat, capital: kind === "capital", country: country?.name ?? null });
+      if (kind === "capital" && country && !country.capital) country.capital = name;
+    }
+  }
+
   const result = {
     year: bm.year,
     set: base,
+    cities,
     owner,
     countries: features,
     byName: new Map(features.map((f) => [f.properties.name, f])),
@@ -224,6 +293,7 @@ const gHoverProv = world.append("path").attr("class", "hover-province");
 // 一次就要几百毫秒。改为每次缩放停下后，按屏幕坐标只画当前可见的那些。
 const gProvLabels = svg.append("g").attr("class", "province-labels");
 const gLabels = svg.append("g").attr("class", "labels");
+const gCities = svg.append("g").attr("class", "cities");
 
 const projection = d3.geoMercator();
 const path = d3.geoPath(projection);
@@ -310,6 +380,7 @@ function scheduleLabelUpdate() {
   labelFrame = requestAnimationFrame(() => {
     labelFrame = 0;
     renderLabels();
+    renderCities();
     updateProvinceLabels();
   });
 }
@@ -589,6 +660,61 @@ function renderLabels() {
     .text((d) => d.text);
 }
 
+// ---------- 首都与城市 ----------
+//
+// 首都（金色菱形）任何缩放都画，放大后显示名字；普通城市（圆点）放大后才出现。
+// 名字避开国名，避不开就只画标记。
+const CAPITAL_NAME_ZOOM = 1.8;
+const CITY_ZOOM = 2.5;
+const CITY_NAME_ZOOM = 3.5;
+let cityBoxes = []; // 城市名占用的区域（地图坐标），省份名要避开
+
+function renderCities() {
+  if (!current) return;
+  const t = d3.zoomTransform(stage);
+  const k = t.k;
+  const placed = shownLabels.map((d) => {
+    const hw = (textEm(d.text) * d.size) / 2;
+    return [t.applyX(d.x - hw), t.applyY(d.y - d.size / 2), t.applyX(d.x + hw), t.applyY(d.y + d.size / 2)];
+  });
+  const items = [];
+  cityBoxes = [];
+  // 首都优先放置名字
+  const ordered = [...current.cities].sort((a, b) => b.capital - a.capital);
+  for (const c of ordered) {
+    if (!c.capital && k < CITY_ZOOM) continue;
+    const [mx, my] = projection([c.lon, c.lat]);
+    const x = t.applyX(mx);
+    const y = t.applyY(my);
+    if (x < -20 || x > width + 20 || y < -20 || y > height + 20) continue;
+    const item = { ...c, x, y, showName: false };
+    if (k >= (c.capital ? CAPITAL_NAME_ZOOM : CITY_NAME_ZOOM)) {
+      const fs = c.capital ? 12 : 11;
+      const w = textEm(c.name) * fs;
+      const box = [x + 6, y - fs * 0.7, x + 8 + w, y + fs * 0.7];
+      if (!placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) {
+        placed.push(box);
+        cityBoxes.push([t.invertX(box[0] - 8), t.invertY(box[1]), t.invertX(box[2]), t.invertY(box[3])]);
+        item.showName = true;
+      }
+    }
+    items.push(item);
+  }
+
+  const g = gCities.selectAll("g.city")
+    .data(items, (d) => d.name + d.lon)
+    .join((enter) => {
+      const e = enter.append("g").attr("class", (d) => "city" + (d.capital ? " capital" : ""));
+      e.append((d) => document.createElementNS("http://www.w3.org/2000/svg", d.capital ? "rect" : "circle"));
+      e.append("text").attr("class", "city-name").attr("x", 8).attr("dy", "0.35em").text((d) => d.name);
+      return e;
+    })
+    .attr("transform", (d) => `translate(${d.x},${d.y})`);
+  g.select("rect").attr("x", -3.5).attr("y", -3.5).attr("width", 7).attr("height", 7).attr("transform", "rotate(45)");
+  g.select("circle").attr("r", 2.6);
+  g.select("text").attr("display", (d) => (d.showName ? null : "none"));
+}
+
 // ---------- 省份名（放大后显示） ----------
 
 // 同一个行政区切出来的几块省份同名，只在面积最大的那块上标名字；
@@ -627,17 +753,19 @@ function updateProvinceLabels() {
     const hw = (textEm(d.text) * d.size) / 2;
     placed.push([d.x - hw, d.y - d.size / 2, d.x + hw, d.y + d.size / 2]);
   }
+  placed.push(...cityBoxes);
 
   const visible = [];
   for (const d of current.set.labels) {
     if (d.x < x0 || d.x > x1 || d.y < y0 || d.y > y1 || hidden(d.id)) continue;
-    const px = d.size * zoomK;
-    if (px < 9 || px > 18) continue;
-    const hw = (textEm(d.text) * d.size) / 2 + 1 / zoomK;
-    const box = [d.x - hw, d.y - d.size / 2, d.x + hw, d.y + d.size / 2];
+    // 字号太小的不画；大省份的字号封顶 18px（而不是不画）
+    if (d.size * zoomK < 9) continue;
+    const size = Math.min(d.size, 18 / zoomK);
+    const hw = (textEm(d.text) * size) / 2 + 1 / zoomK;
+    const box = [d.x - hw, d.y - size / 2, d.x + hw, d.y + size / 2];
     if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
     placed.push(box);
-    visible.push(d);
+    visible.push({ ...d, size });
   }
 
   gProvLabels.selectAll("text")
@@ -659,7 +787,7 @@ function showTooltip(event, d) {
     (prov && !prov.properties.whole ? `<span class="prov">${prov.properties.label}</span>` : "") +
     `<strong>${zh}</strong>` +
     (zh !== p.name ? `<span class="orig">${p.name}</span>` : "") +
-    (p.overlord ? `<span class="sub">附属于 ${zhName(p.overlord)}</span>` : "");
+    (p.overlord ? `<span class="sub">${relationText(p)}</span>` : "");
   const rect = stage.getBoundingClientRect();
   tooltip.style.left = `${event.clientX - rect.left + 14}px`;
   tooltip.style.top = `${event.clientY - rect.top + 14}px`;
@@ -719,8 +847,25 @@ function select(name, { zoom: doZoom = false } = {}) {
   const zh = zhName(p.name);
   document.getElementById("c-name").textContent = zh;
   document.getElementById("c-orig").textContent = zh !== p.name ? p.name : "";
-  document.getElementById("c-overlord").textContent = p.overlord ? zhName(p.overlord) : "独立";
+  document.getElementById("c-overlord-label").textContent = p.relation === "union" ? "共主邦联" : "宗主";
+  document.getElementById("c-overlord").textContent = p.overlord
+    ? (p.relation === "union" ? `与${zhName(p.overlord)}共主` : zhName(p.overlord))
+    : "独立";
+
+  // 本国的附庸与共主邦联
+  const subjects = current.countries
+    .map((f) => f.properties)
+    .filter((c) => c.overlord === p.name)
+    .sort((a, b) => b.areaKm2 - a.areaKm2);
+  d3.select("#c-subjects-block").property("hidden", !subjects.length);
+  d3.select("#c-subjects")
+    .selectAll("li")
+    .data(subjects, (d) => d.name)
+    .join("li")
+    .html((d) => `<span class="swatch" style="background:${d.color}"></span>${zhName(d.name)}${d.relation === "union" ? "（共主）" : ""}`)
+    .on("click", (_, d) => select(d.name, { zoom: true }));
   document.getElementById("c-provinces").textContent = p.provinces.length;
+  document.getElementById("c-capital").textContent = p.capital ?? "—";
   document.getElementById("c-area").textContent = `${Math.round(p.areaKm2).toLocaleString("zh-CN")} km²`;
   document.getElementById("c-rank").textContent = p.unorganized ? "—" : `第 ${p.rank} / ${current.total}`;
 
