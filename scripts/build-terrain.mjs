@@ -55,6 +55,10 @@ for (let ty = y0; ty <= y1; ty++) {
 }
 console.log(`高程拼接完成：${W}×${H}`);
 
+// 原始高程另存一份（Int16，米），供按地形划分州界、生成 3D 地形使用；体积大，放在被忽略的 data-src/
+fs.writeFileSync("data-src/elev_china.bin", Buffer.from(Int16Array.from(elev, (e) => Math.max(-32768, Math.min(32767, Math.round(e)))).buffer));
+fs.writeFileSync("data-src/elev_china.json", JSON.stringify({ z: Z, x0, y0, width: W, height: H }));
+
 // 2. 分层设色：低地暖米色 → 丘陵 → 高原褐色 → 雪线以上近白
 const STOPS = [
   [0, [216, 206, 162]],

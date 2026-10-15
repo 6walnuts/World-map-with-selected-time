@@ -144,6 +144,196 @@ function voronoiSplit(territory, seats) {
   return out;
 }
 
+// ---------- 按地形划分（有高程数据时） ----------
+// 直线 Voronoi 会切出几何多边形；这里改成「走过去代价最小」：在网格上从各治所同时做
+// Dijkstra，翻山、上高原代价更高，于是州界会沿山脊、分水岭走。高程来自 build-terrain.mjs
+// 另存的 data-src/elev_china.bin（Web 墨卡托网格，Int16 米）。
+
+const DEM_META = "data-src/elev_china.json";
+const dem = fs.existsSync(DEM_META)
+  ? { ...JSON.parse(fs.readFileSync(DEM_META, "utf8")), data: new Int16Array(new Uint8Array(fs.readFileSync("data-src/elev_china.bin")).buffer) }
+  : null;
+if (dem) {
+  const n = 2 ** dem.z;
+  dem.lon2px = (lon) => (((lon + 180) / 360) * n - dem.x0) * 256;
+  dem.lat2py = (lat) => {
+    const r = (lat * Math.PI) / 180;
+    return (((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n - dem.y0) * 256;
+  };
+  dem.west = (dem.x0 / n) * 360 - 180;
+  dem.east = ((dem.x0 + dem.width / 256) / n) * 360 - 180;
+  const y2lat = (y) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI;
+  dem.north = y2lat(dem.y0);
+  dem.south = y2lat(dem.y0 + dem.height / 256);
+}
+function elevAt(lon, lat) {
+  const x = dem.lon2px(lon) - 0.5, y = dem.lat2py(lat) - 0.5;
+  const xi = Math.max(0, Math.min(dem.width - 2, Math.floor(x)));
+  const yi = Math.max(0, Math.min(dem.height - 2, Math.floor(y)));
+  const fx = Math.min(1, Math.max(0, x - xi)), fy = Math.min(1, Math.max(0, y - yi));
+  const d = dem.data, i = yi * dem.width + xi;
+  const top = d[i] * (1 - fx) + d[i + 1] * fx;
+  const bot = d[i + dem.width] * (1 - fx) + d[i + dem.width + 1] * fx;
+  return top * (1 - fy) + bot * fy;
+}
+const demCovers = ([x0, y0, x1, y1]) => dem && x0 >= dem.west && x1 <= dem.east && y0 >= dem.south && y1 <= dem.north;
+
+const CELL = 0.04; // 网格边长（度），约 4 公里
+const SLOPE_W = 25; // 坡度权重：每公里爬升 100 米，代价约 ×3.5
+const HIGH_START = 1500, HIGH_SPAN = 1500; // 1500 米以上逐级加价（高原、雪山难以跨越）
+const OUTSIDE_W = 6; // 疆域外（海、他国）也要标号以便多边形贴合海岸，但很难穿越
+const RIVER_KM = 12; // 渡过大河额外代价（公里）：平原上的州界多以河为界
+
+// 大河（来自 build-china-geo.mjs 的 Natural Earth 河流）
+const RIVER_LINES = fs.existsSync("public/data/china_geo.json")
+  ? JSON.parse(fs.readFileSync("public/data/china_geo.json", "utf8")).rivers.features
+    .filter((f) => (f.properties.rank ?? 9) <= 7)
+    .flatMap((f) => (f.geometry.type === "LineString" ? [f.geometry.coordinates] : f.geometry.coordinates))
+  : [];
+function rasterizeRivers(gx0, gy1, w, h) {
+  const river = new Uint8Array(w * h);
+  for (const line of RIVER_LINES) {
+    for (let k = 1; k < line.length; k++) {
+      const [ax, ay] = line[k - 1], [bx, by] = line[k];
+      const n = Math.ceil(Math.hypot(bx - ax, by - ay) / (CELL / 3)) + 1;
+      for (let t = 0; t <= n; t++) {
+        const c = Math.floor((ax + ((bx - ax) * t) / n - gx0) / CELL);
+        const r = Math.floor((gy1 - (ay + ((by - ay) * t) / n)) / CELL);
+        if (r >= 0 && c >= 0 && r < h && c < w) river[r * w + c] = 1;
+      }
+    }
+  }
+  return river;
+}
+
+// 扫描线奇偶填充：返回 mask[row*w+col]，行从北往南
+function rasterize(geom, gx0, gy1, w, h) {
+  const mask = new Uint8Array(w * h);
+  const rings = geom.type === "Polygon" ? geom.coordinates : geom.coordinates.flat();
+  for (let r = 0; r < h; r++) {
+    const lat = gy1 - (r + 0.5) * CELL;
+    const xs = [];
+    for (const ring of rings) {
+      for (let k = 0, j = ring.length - 1; k < ring.length; j = k++) {
+        const [ax, ay] = ring[j], [bx, by] = ring[k];
+        if ((ay > lat) !== (by > lat)) xs.push(ax + ((lat - ay) / (by - ay)) * (bx - ax));
+      }
+    }
+    xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const c0 = Math.max(0, Math.ceil((xs[k] - gx0) / CELL - 0.5));
+      const c1 = Math.min(w - 1, Math.floor((xs[k + 1] - gx0) / CELL - 0.5));
+      for (let c = c0; c <= c1; c++) mask[r * w + c] = 1;
+    }
+  }
+  return mask;
+}
+
+function costSplit(territory, seats) {
+  const [bx0, by0, bx1, by1] = turf.bbox(territory);
+  const PAD = 3;
+  const gx0 = bx0 - PAD * CELL, gy1 = by1 + PAD * CELL;
+  const w = Math.ceil((bx1 - bx0) / CELL) + 2 * PAD, h = Math.ceil((by1 - by0) / CELL) + 2 * PAD;
+  const N = w * h;
+  const mask = rasterize(territory, gx0, gy1, w, h);
+  const river = rasterizeRivers(gx0, gy1, w, h);
+  const elev = new Float32Array(N);
+  for (let r = 0; r < h; r++) {
+    const lat = gy1 - (r + 0.5) * CELL;
+    for (let c = 0; c < w; c++) elev[r * w + c] = Math.max(0, elevAt(gx0 + (c + 0.5) * CELL, lat));
+  }
+  const kmY = CELL * 111.2;
+  const kmX = new Float32Array(h);
+  for (let r = 0; r < h; r++) kmX[r] = kmY * Math.cos(((gy1 - (r + 0.5) * CELL) * Math.PI) / 180);
+
+  // 多源 Dijkstra（二叉堆）
+  const dist = new Float64Array(N).fill(Infinity);
+  const label = new Int32Array(N).fill(-1);
+  const heap = []; // [cost, idx]
+  const push = (cost, i) => {
+    heap.push([cost, i]);
+    let k = heap.length - 1;
+    while (k > 0) {
+      const p = (k - 1) >> 1;
+      if (heap[p][0] <= heap[k][0]) break;
+      [heap[p], heap[k]] = [heap[k], heap[p]];
+      k = p;
+    }
+  };
+  const pop = () => {
+    const top = heap[0], last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      let k = 0;
+      for (;;) {
+        const l = 2 * k + 1, r = l + 1;
+        let m = k;
+        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+        if (m === k) break;
+        [heap[m], heap[k]] = [heap[k], heap[m]];
+        k = m;
+      }
+    }
+    return top;
+  };
+  seats.forEach((s, si) => {
+    let c = Math.floor((s.lon - gx0) / CELL), r = Math.floor((gy1 - s.lat) / CELL);
+    c = Math.max(0, Math.min(w - 1, c)); r = Math.max(0, Math.min(h - 1, r));
+    // 治所常在海岸或疆界边上：挪到最近的疆域内网格
+    let best = r * w + c;
+    if (!mask[best]) {
+      let bd = Infinity;
+      for (let dr = -6; dr <= 6; dr++) for (let dc = -6; dc <= 6; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || cc < 0 || rr >= h || cc >= w || !mask[rr * w + cc]) continue;
+        const d = dr * dr + dc * dc;
+        if (d < bd) { bd = d; best = rr * w + cc; }
+      }
+    }
+    if (dist[best] > 0) { dist[best] = 0; label[best] = si; push(0, best); }
+  });
+  // 16 邻域（含「马步」），减少 8 邻域带来的八边形锯齿
+  const NB = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1],
+    [-2, -1], [-2, 1], [2, -1], [2, 1], [-1, -2], [1, -2], [-1, 2], [1, 2]];
+  while (heap.length) {
+    const [d, i] = pop();
+    if (d > dist[i]) continue;
+    const r = (i / w) | 0, c = i - r * w;
+    for (const [dr, dc] of NB) {
+      const rr = r + dr, cc = c + dc;
+      if (rr < 0 || cc < 0 || rr >= h || cc >= w) continue;
+      const j = rr * w + cc;
+      const dx = dc * (kmX[r] + kmX[rr]) / 2, dy = dr * kmY;
+      const km = Math.hypot(dx, dy);
+      const climb = Math.abs(elev[j] - elev[i]) / (km * 1000);
+      const high = 1 + Math.max(0, (Math.max(elev[i], elev[j]) - HIGH_START) / HIGH_SPAN);
+      let step = km * (1 + SLOPE_W * climb) * high;
+      if (!mask[j] || !mask[i]) step *= OUTSIDE_W;
+      if (river[j] && !river[i]) step += RIVER_KM;
+      const nd = d + step;
+      if (nd < dist[j]) { dist[j] = nd; label[j] = label[i]; push(nd, j); }
+    }
+  }
+
+  // 逐个标号描出轮廓，再与疆域求交（贴合真实海岸与国界）
+  const out = [];
+  const contour = d3.contours().size([w, h]).thresholds([0.5]);
+  const toGeo = ([x, y]) => [gx0 + x * CELL, gy1 - y * CELL];
+  const values = new Float64Array(N);
+  seats.forEach((seat, si) => {
+    let any = false;
+    for (let i = 0; i < N; i++) { values[i] = label[i] === si ? 1 : 0; any ||= values[i] === 1 && mask[i] === 1; }
+    if (!any) return;
+    const [mp] = contour(values);
+    if (!mp.coordinates.length) return;
+    const geom = { type: "MultiPolygon", coordinates: mp.coordinates.map((p) => p.map((ring) => ring.map(toGeo))) };
+    const part = turf.intersect(turf.featureCollection([turf.feature(geom), turf.feature(territory)]));
+    if (part) out.push({ seat, geometry: part.geometry });
+  });
+  return out;
+}
+
 const features = [];
 
 // ---------- 真实边界（本地 CHGIS 州府多边形，可选） ----------
@@ -186,7 +376,10 @@ for (const [key, ids] of byOwner) {
   const ownerName = o >= 0 ? owners.countries[o].name : null;
   const seats = (seatsByOwner.get(o) ?? []).filter((s) => !insideReal(s));
   if (o >= 0 && seats.length >= 2) {
-    for (const { seat, geometry } of voronoiSplit(territory, seats)) {
+    const useCost = demCovers(turf.bbox(territory)) && !process.env.NO_TERRAIN;
+    const parts = useCost ? costSplit(territory, seats) : voronoiSplit(territory, seats);
+    if (useCost) console.log(`  ${ownerName}：按地形划分 ${parts.length}/${seats.length}`);
+    for (const { seat, geometry } of parts) {
       features.push({ type: "Feature", properties: { label: seat.name, o, seatLon: seat.lon, seatLat: seat.lat }, geometry });
     }
   } else {
