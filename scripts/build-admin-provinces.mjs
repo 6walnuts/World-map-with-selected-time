@@ -31,6 +31,27 @@ if (owners.provinces) {
 }
 const admin = JSON.parse(fs.readFileSync(`data/admin_${year}.json`, "utf8"));
 
+// 本地的受限数据（如 CHGIS，见 import-chgis.mjs）存在时优先使用：
+// 手工治所与其中任一治所相距不到 40 公里的视为重复，去掉
+const LOCAL = `data-local/chgis_seats_${year}.json`;
+if (fs.existsSync(LOCAL)) {
+  const local = JSON.parse(fs.readFileSync(LOCAL, "utf8"));
+  const km = ([, lon1, lat1], [, lon2, lat2]) => {
+    const r = Math.PI / 180;
+    const a = Math.sin(((lat2 - lat1) * r) / 2) ** 2
+      + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(((lon2 - lon1) * r) / 2) ** 2;
+    return 2 * 6371 * Math.asin(Math.sqrt(a));
+  };
+  let dropped = 0;
+  for (const g of admin.groups) {
+    const before = g.seats.length;
+    g.seats = g.seats.filter((s) => !local.seats.some((t) => km(s, t) < 40));
+    dropped += before - g.seats.length;
+  }
+  admin.groups.push(local);
+  console.log(`  使用本地数据 ${LOCAL}：${local.seats.length} 个治所，替换手工治所 ${dropped} 个`);
+}
+
 // ---------- 各国疆域 ----------
 
 function fixWinding(geometry) {

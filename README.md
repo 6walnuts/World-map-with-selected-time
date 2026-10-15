@@ -82,6 +82,16 @@ npm run build    # 打包到 dist/，可直接部署到任意静态托管
 
 辖区的**名称和治所是史实**，**边界是近似的**。生成的 `provinces_<年份>.json` 只给这一年用，归属表里的 `"provinces"` 字段告诉前端用哪份底图。`build-data.sh` 遇到有治所表的年份会自动执行这一步。
 
+### 用 CHGIS 替换 800 年的唐朝州府（可选，仅本地）
+
+[CHGIS](https://chgis.fas.harvard.edu/data/chgis/v6/) 的州府时间序列点能提供 800 年存在的全部 321 个州府治所（手工整理的约 260 个）。CHGIS 仅限学术非商业使用、不得再分发，所以仓库里不含它的数据和由它生成的地图，需要自己下载后在本地生成：
+
+1. 从 Harvard Dataverse 下载 **V6 Time Series Prefecture Points**，解压出 `v6_time_pref_pts_utf_wgs84.shp`
+2. `node scripts/import-chgis.mjs path/to/v6_time_pref_pts_utf_wgs84.shp 800`（输出到被 git 忽略的 `data-local/`）
+3. `bash scripts/build-data.sh 800`：发现 `data-local/chgis_seats_800.json` 就优先使用它，手工治所里与之相距 40 公里内的自动去掉
+
+注意第 3 步会改写 `public/data/provinces_800.json` 与 `owners_800.json`，这两个文件此时含 CHGIS 派生数据，不要提交到公开仓库。
+
 ### historical-basemaps 没有的年份
 
 可以用相近年份的数据做底，再用规则修正：`bash scripts/build-data.sh 769:800` 表示开局年份 769、用 800 年的边界数据，规则写在 `overrides.json` 的 `"769"` 下。
