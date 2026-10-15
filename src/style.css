@@ -126,14 +126,27 @@ button {
   position: relative;
   overflow: hidden;
   min-height: 0;
+  /* 海洋画在容器背景上，手势中地图被缩小或平移时边缘也是海 */
+  background: radial-gradient(ellipse at 50% 45%, #36606f 0%, #1a3340 75%);
+}
+
+/* 手势中只对这个外层 div 做 CSS 变换：变换 <svg> 本身仍会触发 SVG 重新排版 */
+#map-wrap {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 #map {
   display: block;
+}
+
+#stage {
   cursor: grab;
 }
 
-#map:active {
+#stage:active {
   cursor: grabbing;
 }
 
@@ -244,18 +257,21 @@ button {
   pointer-events: none;
 }
 
-.paper {
+/* 纸纹和暗角是盖在地图上的 CSS 图层，缩放时不参与重绘 */
+.paper-overlay,
+.vignette-overlay {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
-  mix-blend-mode: multiply;
-  opacity: 0.55;
 }
 
-.vignette {
-  pointer-events: none;
-  fill: none;
-  stroke: rgba(0, 0, 0, 0.55);
-  stroke-width: 60;
-  filter: blur(30px);
+.paper-overlay {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+.vignette-overlay {
+  background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
 }
 
 #tooltip {

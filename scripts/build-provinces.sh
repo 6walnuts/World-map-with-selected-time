@@ -21,3 +21,10 @@ npx mapshaper -i "$SRC/provinces_raw.geojson" \
   snap snap-interval=0.0005 \
   -clean \
   -o public/data/provinces.json format=topojson quantization=2e5
+
+# 海岸光晕用的低精度海岸线（光晕是模糊的，不需要全精度）
+npx mapshaper -i public/data/provinces.json \
+  -dissolve \
+  -simplify 6% keep-shapes \
+  -filter-slivers min-area=200km2 \
+  -o public/data/coast.json format=topojson quantization=1e5

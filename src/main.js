@@ -1,5 +1,6 @@
 import * as d3 from "d3";
 import * as topojson from "topojson-client";
+import { presimplify, simplify, quantile } from "topojson-simplify";
 import {
   BOOKMARKS,
   DEFAULT_YEAR,
@@ -71,14 +72,24 @@ function loadProvinceSet(file) {
   return provinceSets.get(file);
 }
 
+// 细节层级（LOD）：远看用大幅简化的边界，拉近才用全精度。
+// 每级保留的顶点比例，以及切换到下一级的缩放倍数。
+const LOD_KEEP = [0.12, 0.4, 1];
+const LOD_ZOOM = [2.5, 7];
+const PROVINCE_LINE_ZOOM = 1.6; // 省界开始显现的缩放倍数
+const levelFor = (k) => (k < LOD_ZOOM[0] ? 0 : k < LOD_ZOOM[1] ? 1 : 2);
+
 function buildProvinceSet(topo) {
   const obj = Object.values(topo.objects)[0];
+  const pre = presimplify(topo);
+  // 简化后的拓扑与原拓扑共享 objects（同一批几何对象），只是弧线的顶点更少
+  const levels = LOD_KEEP.map((keep) => (keep >= 1 ? topo : simplify(pre, quantile(pre, 1 - keep))));
   const set = {
     topo,
+    levels,
     geoms: obj.geometries, // TopoJSON 里的省份几何对象
-    provinces: topojson.feature(topo, obj).features, // GeoJSON features
+    provinces: topojson.feature(topo, obj).features, // GeoJSON features（全精度）
     neighbors: topojson.neighbors(obj.geometries),
-    coast: topojson.mesh(topo, obj, (a, b) => a === b), // 海岸线（省份的外边界）
     labels: null, // 省份名标签，依赖投影，resize 后重算
   };
   set.geoms.forEach((g, i) => (g.index = i));
@@ -131,7 +142,7 @@ async function loadYear(bm) {
     }
   });
 
-  const merge = (ids) => topojson.merge(base.topo, ids.map((i) => base.geoms[i]));
+  const merge = (ids, lvl = 2) => topojson.merge(base.levels[lvl], ids.map((i) => base.geoms[i]));
 
   const features = countries
     .filter((c) => c.provinces.length)
@@ -157,8 +168,12 @@ async function loadYear(bm) {
     total: ranked.length,
     unclaimed: merge(unclaimed),
     unknown: unknown.length ? merge(unknown) : null,
+    unclaimedIds: unclaimed,
+    unknownIds: unknown,
+    lod: new Map(), // 各级简化几何的缓存，按需生成
+    merge,
     // 同一国家内部的省界（细线）
-    provinceLines: topojson.mesh(base.topo, { type: "GeometryCollection", geometries: base.geoms },
+    provinceLines: (lvl) => topojson.mesh(base.levels[lvl], { type: "GeometryCollection", geometries: base.geoms },
       (a, b) => a !== b && owner[a.index] === owner[b.index]),
   };
   cache.set(bm.year, result);
@@ -173,15 +188,22 @@ const tooltip = document.getElementById("tooltip");
 
 const defs = svg.append("defs");
 
-const ocean = defs.append("radialGradient").attr("id", "ocean-grad").attr("cx", "50%").attr("cy", "45%").attr("r", "75%");
-ocean.append("stop").attr("offset", "0%").attr("stop-color", "#36606f");
-ocean.append("stop").attr("offset", "100%").attr("stop-color", "#1a3340");
-
-// 羊皮纸噪点纹理
-const paper = defs.append("filter").attr("id", "paper").attr("x", 0).attr("y", 0).attr("width", "100%").attr("height", "100%");
-paper.append("feTurbulence").attr("type", "fractalNoise").attr("baseFrequency", 0.85).attr("numOctaves", 3).attr("seed", 7);
-paper.append("feColorMatrix").attr("values", "0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0 0.2  0 0 0 0.55 0");
-paper.append("feComposite").attr("in2", "SourceGraphic").attr("operator", "in");
+// 羊皮纸噪点：启动时用 canvas 生成一小块，平铺在地图上方
+(function paintPaper() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 180;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(c.width, c.height);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random();
+    img.data[i] = 115;
+    img.data[i + 1] = 90;
+    img.data[i + 2] = 50;
+    img.data[i + 3] = v * v * 110;
+  }
+  ctx.putImageData(img, 0, 0);
+  document.querySelector(".paper-overlay").style.backgroundImage = `url(${c.toDataURL()})`;
+})();
 
 // 海岸浅水的柔光
 const glow = defs.append("filter").attr("id", "coast-glow").attr("x", "-5%").attr("y", "-5%").attr("width", "110%").attr("height", "110%");
@@ -193,16 +215,15 @@ const fog = defs.append("pattern").attr("id", "terra-incognita").attr("width", 6
 fog.append("rect").attr("width", 6).attr("height", 6).attr("fill", "#3e3527");
 fog.append("line").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", 6).attr("stroke", "#4b402f").attr("stroke-width", 2);
 
-const oceanRect = svg.append("rect").attr("class", "ocean").attr("fill", "url(#ocean-grad)");
 const world = svg.append("g").attr("class", "world");
 const gGraticule = world.append("path").attr("class", "graticule");
 const gCoast = world.append("path").attr("class", "coast-glow").attr("filter", "url(#coast-glow)");
 let gLayer = world.append("g").attr("class", "year-layer");
 const gHoverProv = world.append("path").attr("class", "hover-province");
-const gProvLabels = world.append("g").attr("class", "province-labels");
-let gLabels = world.append("g").attr("class", "labels");
-const paperRect = svg.append("rect").attr("class", "paper").attr("filter", "url(#paper)");
-const vignette = svg.append("rect").attr("class", "vignette");
+// 标签不放在缩放的 <g> 里：SVG 文字在缩放变化时要重新排版字形，几百个中文标签
+// 一次就要几百毫秒。改为每次缩放停下后，按屏幕坐标只画当前可见的那些。
+const gProvLabels = svg.append("g").attr("class", "province-labels");
+const gLabels = svg.append("g").attr("class", "labels");
 
 const projection = d3.geoMercator();
 const path = d3.geoPath(projection);
@@ -217,9 +238,6 @@ function resize() {
   width = stage.clientWidth;
   height = stage.clientHeight;
   svg.attr("width", width).attr("height", height);
-  oceanRect.attr("width", width).attr("height", height);
-  paperRect.attr("width", width).attr("height", height);
-  vignette.attr("width", width).attr("height", height);
 
   const corners = { type: "MultiPoint", coordinates: [[-180, LAT_TOP], [180, LAT_BOTTOM]] };
   projection.clipExtent(null).fitSize([width, height], corners);
@@ -231,9 +249,9 @@ function resize() {
   gGraticule.attr("d", path(d3.geoGraticule10()));
   for (const set of provinceSets.values()) set.then((s) => (s.labels = null));
   if (current) {
-    gCoast.attr("d", path(current.set.coast));
+    if (coastGlow) gCoast.attr("d", path(coastGlow));
     drawLayer(gLayer, current);
-    drawLabels(gLabels, current);
+    drawLabels(current);
   }
 }
 
@@ -245,26 +263,53 @@ function resize() {
 const MAX_ZOOM = 24;
 const PROVINCE_LABEL_ZOOM = 4; // 从这个倍数开始显示省份名
 
+// 性能关键：直接改 <g> 的 transform 会让浏览器对几百万字符的路径重新排版，
+// 每帧上百毫秒。所以手势进行中只给整张 <svg> 加 CSS 变换（GPU 合成，不重排），
+// 手势停下约 150ms 后再把变换真正写进 <g> 并更新标签、省界。
+// 缩放行为挂在不会被变换的容器 #stage 上，鼠标坐标才不会被 CSS 变换带偏。
+const stageSel = d3.select(stage);
+const mapWrap = document.getElementById("map-wrap");
+let committed = d3.zoomIdentity; // 已经真正绘制到 <g> 上的变换
+let commitTimer = null;
+
+function commitTransform() {
+  commitTimer = null;
+  const t = d3.zoomTransform(stage);
+  committed = t;
+  world.attr("transform", t);
+  mapWrap.style.transform = "";
+  zoomK = t.k;
+  const lvl = levelFor(t.k);
+  const linesOn = t.k >= PROVINCE_LINE_ZOOM;
+  if (current && (lvl !== currentLevel || linesOn !== !!gLayer.select(".province-lines").attr("d"))) {
+    currentLevel = lvl;
+    applyLevel(gLayer, current, lvl);
+  }
+  if (current) cullToView(gLayer);
+  // 放大后才显示省界，避免全图时一片细线
+  svg.style("--prov-opacity", Math.max(0, Math.min(1, (zoomK - PROVINCE_LINE_ZOOM) / 2.5)));
+  scheduleLabelUpdate();
+}
+
 const zoom = d3.zoom()
   .scaleExtent([1, MAX_ZOOM])
+  .filter((event) => !event.target.closest?.(".zoom-ctl") && (!event.ctrlKey || event.type === "wheel") && !event.button)
   .on("zoom", (event) => {
-    world.attr("transform", event.transform);
-    zoomK = event.transform.k;
-    // 放大后才显示省界，避免全图时一片细线
-    svg.style("--prov-opacity", Math.max(0, Math.min(1, (zoomK - 1.6) / 2.5)));
-    scheduleLabelUpdate();
+    const t = event.transform;
+    const k = t.k / committed.k;
+    mapWrap.style.transform = `translate(${t.x - committed.x * k}px, ${t.y - committed.y * k}px) scale(${k})`;
+    tooltip.hidden = true;
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(commitTransform, 150);
   });
-svg.call(zoom)
-  .on("dblclick.zoom", null)
-  .on("wheel.zoom", null); // 滚轮交给下面的平滑缩放
-
+stageSel.call(zoom)
 // 标签更新比较重，合并到每帧最多一次
 let labelFrame = 0;
 function scheduleLabelUpdate() {
   if (labelFrame) return;
   labelFrame = requestAnimationFrame(() => {
     labelFrame = 0;
-    updateLabelVisibility(gLabels);
+    renderLabels();
     updateProvinceLabels();
   });
 }
@@ -272,25 +317,25 @@ function scheduleLabelUpdate() {
 // 平滑滚轮缩放：滚轮只改变目标倍数，每帧向目标逼近一段
 const smooth = { target: 1, anchor: null, timer: null };
 
-svg.on("wheel", (event) => {
+stageSel.on("wheel", (event) => {
   event.preventDefault();
-  const k = d3.zoomTransform(svg.node()).k;
+  const k = d3.zoomTransform(stage).k;
   if (!smooth.timer) smooth.target = k;
   // 触控板的 deltaY 很小、鼠标滚轮很大，统一换算成倍数
   const delta = -event.deltaY * (event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002);
   smooth.target = Math.max(1, Math.min(MAX_ZOOM, smooth.target * Math.pow(2, Math.max(-0.6, Math.min(0.6, delta)))));
-  smooth.anchor = d3.pointer(event, svg.node());
+  smooth.anchor = d3.pointer(event, stage);
   if (!smooth.timer) {
     smooth.timer = d3.timer(() => {
-      const cur = d3.zoomTransform(svg.node()).k;
+      const cur = d3.zoomTransform(stage).k;
       const next = cur + (smooth.target - cur) * 0.22;
       if (Math.abs(smooth.target - cur) < 0.002 * cur) {
-        zoom.scaleTo(svg, smooth.target, smooth.anchor);
+        zoom.scaleTo(stageSel, smooth.target, smooth.anchor);
         smooth.timer.stop();
         smooth.timer = null;
         return;
       }
-      zoom.scaleTo(svg, next, smooth.anchor);
+      zoom.scaleTo(stageSel, next, smooth.anchor);
     });
   }
 }, { passive: false });
@@ -304,13 +349,13 @@ function stopSmoothZoom() {
 
 const zoomBy = (factor) => {
   stopSmoothZoom();
-  svg.transition().duration(350).ease(d3.easeCubicOut).call(zoom.scaleBy, factor);
+  stageSel.transition().duration(350).ease(d3.easeCubicOut).call(zoom.scaleBy, factor);
 };
 document.getElementById("zoom-in").onclick = () => zoomBy(1.8);
 document.getElementById("zoom-out").onclick = () => zoomBy(1 / 1.8);
 document.getElementById("zoom-reset").onclick = () => {
   stopSmoothZoom();
-  svg.transition().duration(600).ease(d3.easeCubicInOut).call(zoom.transform, d3.zoomIdentity);
+  stageSel.transition().duration(600).ease(d3.easeCubicInOut).call(zoom.transform, d3.zoomIdentity);
 };
 
 // 键盘：WASD / 方向键平移（按住持续移动），+ / - 缩放
@@ -342,8 +387,8 @@ window.addEventListener("keydown", (e) => {
         dx += PAN_KEYS[k][0];
         dy += PAN_KEYS[k][1];
       }
-      const t = d3.zoomTransform(svg.node());
-      zoom.translateBy(svg, (dx * step) / t.k, (dy * step) / t.k);
+      const t = d3.zoomTransform(stage);
+      zoom.translateBy(stageSel, (dx * step) / t.k, (dy * step) / t.k);
     });
   }
 });
@@ -367,7 +412,7 @@ function zoomToCountry(f) {
     .translate(width / 2, height / 2)
     .scale(Math.max(1, k))
     .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
-  svg.transition().duration(750).call(zoom.transform, t);
+  stageSel.transition().duration(750).call(zoom.transform, t);
 }
 
 // ---------- 国家、省份与标签 ----------
@@ -404,11 +449,65 @@ function provinceAt(event, country) {
   return null;
 }
 
+// 某一级简化程度下的几何，首次用到时生成并缓存
+function geomAt(data, key, lvl) {
+  const id = `${lvl}|${key}`;
+  if (!data.lod.has(id)) {
+    let g;
+    if (key === "#unclaimed") g = data.merge(data.unclaimedIds, lvl);
+    else if (key === "#unknown") g = data.unknownIds.length ? data.merge(data.unknownIds, lvl) : null;
+    else if (key === "#lines") g = data.provinceLines(lvl);
+    else g = lvl === 2 ? data.byName.get(key).geometry : data.merge(data.byName.get(key).properties.provinces, lvl);
+    data.lod.set(id, g);
+  }
+  return data.lod.get(id);
+}
+
+let currentLevel = 0;
+
+// 把图层里所有路径换成指定简化级别的几何
+function applyLevel(g, data, lvl) {
+  g.select(".unclaimed").attr("d", path(geomAt(data, "#unclaimed", lvl)));
+  const unknown = geomAt(data, "#unknown", lvl);
+  g.select(".terra-incognita").attr("d", unknown ? path(unknown) : null);
+  g.selectAll(".country").attr("d", (d) => path(geomAt(data, d.properties.name, lvl)));
+  // 省界只在放大后可见；看不见时不生成路径，免得白白参与排版
+  const showLines = d3.zoomTransform(stage).k >= PROVINCE_LINE_ZOOM;
+  g.select(".province-lines").attr("d", showLines ? path(geomAt(data, "#lines", lvl)) : null);
+}
+
+// 海岸光晕是模糊的，用一份大幅简化的海岸线就够了（全精度海岸线要多排版几十万字符）
+let coastGlow = null;
+d3.json(`${DATA}coast.json`).then((t) => {
+  coastGlow = topojson.mesh(t, Object.values(t.objects)[0]);
+  gCoast.attr("d", path(coastGlow));
+});
+
+// 拉近后只保留视口附近的国家参与绘制（display:none 的元素不参与排版）
+function cullToView(g) {
+  const t = d3.zoomTransform(stage);
+  if (t.k < LOD_ZOOM[0]) {
+    g.selectAll(".country").style("display", null);
+    return;
+  }
+  const mx = width / t.k / 2;
+  const my = height / t.k / 2;
+  const x0 = t.invertX(0) - mx;
+  const x1 = t.invertX(width) + mx;
+  const y0 = t.invertY(0) - my;
+  const y1 = t.invertY(height) + my;
+  g.selectAll(".country").style("display", (d) => {
+    const [[a, b], [c, e]] = d.properties.screenBounds;
+    return c < x0 || a > x1 || e < y0 || b > y1 ? "none" : null;
+  });
+}
+
 function drawLayer(g, data) {
   g.selectAll("*").remove();
+  for (const f of data.countries) f.properties.screenBounds = path.bounds(f);
 
-  g.append("path").attr("class", "unclaimed").attr("d", path(data.unclaimed));
-  if (data.unknown) g.append("path").attr("class", "terra-incognita").attr("d", path(data.unknown));
+  g.append("path").attr("class", "unclaimed");
+  if (data.unknown) g.append("path").attr("class", "terra-incognita");
 
   g.append("g")
     .attr("class", "countries")
@@ -417,7 +516,6 @@ function drawLayer(g, data) {
     .join("path")
     .attr("class", (d) => "country" + (d.properties.unorganized ? " unorganized" : ""))
     .classed("selected", (d) => d.properties.name === selected)
-    .attr("d", path)
     .attr("fill", (d) => d.properties.color)
     .on("mouseenter", (event) => d3.select(event.currentTarget).classed("hover", true))
     .on("mousemove", (event, d) => showTooltip(event, d))
@@ -431,12 +529,17 @@ function drawLayer(g, data) {
       select(d.properties.name);
     });
 
-  g.append("path").attr("class", "province-lines").attr("d", path(data.provinceLines));
+  g.append("path").attr("class", "province-lines");
   g.select(".countries").selectAll("path.selected").raise();
+  applyLevel(g, data, currentLevel);
+  cullToView(g);
 }
 
-function drawLabels(g, data) {
-  const labels = data.countries
+let labelData = []; // 当前年份的国名标签（地图坐标）
+let shownLabels = []; // 当前屏幕上显示的国名标签
+
+function drawLabels(data) {
+  labelData = data.countries
     .filter((f) => !f.properties.unorganized)
     .map((f) => {
       const poly = largestPolygon(f.geometry);
@@ -448,43 +551,42 @@ function drawLabels(g, data) {
       return { name: f.properties.name, text, x: cx, y: cy, size };
     })
     .filter((l) => Number.isFinite(l.x) && l.size > 0.3);
-
-  g.selectAll("text")
-    .data(labels, (d) => d.name)
-    .join("text")
-    .attr("class", "label")
-    .attr("x", (d) => d.x)
-    .attr("y", (d) => d.y)
-    .attr("font-size", (d) => d.size)
-    .text((d) => d.text);
-
-  updateLabelVisibility(g);
+  renderLabels();
 }
 
-// 屏幕上字号太小（拥挤）或太大（喧宾夺主）的标签隐藏；
-// 剩下的按字号从大到小贪心放置，和已放置的标签重叠就隐藏
-function updateLabelVisibility(g) {
-  const texts = g.selectAll("text");
-  const candidates = texts.data()
+// 屏幕上字号太小（拥挤）或太大（喧宾夺主）的标签不画；
+// 剩下的按字号从大到小贪心放置，和已放置的标签重叠就不画
+function renderLabels() {
+  const t = d3.zoomTransform(stage);
+  const k = t.k;
+  const [x0, x1] = [t.invertX(0), t.invertX(width)];
+  const [y0, y1] = [t.invertY(0), t.invertY(height)];
+  const candidates = labelData
     .filter((d) => {
-      const px = d.size * zoomK;
-      return px >= 9 && px <= 64;
+      const px = d.size * k;
+      return px >= 9 && px <= 64 && d.x > x0 && d.x < x1 && d.y > y0 && d.y < y1;
     })
     .sort((a, b) => b.size - a.size);
 
   const placed = [];
-  const visible = new Set();
+  shownLabels = [];
   for (const d of candidates) {
-    const hw = (textEm(d.text) * d.size) / 2 + 2 / zoomK;
+    const hw = (textEm(d.text) * d.size) / 2 + 2 / k;
     const hh = d.size / 2;
     const box = [d.x - hw, d.y - hh, d.x + hw, d.y + hh];
-    const hit = placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
-    if (!hit) {
-      placed.push(box);
-      visible.add(d.name);
-    }
+    if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+    placed.push(box);
+    shownLabels.push(d);
   }
-  texts.classed("hidden", (d) => !visible.has(d.name));
+
+  gLabels.selectAll("text")
+    .data(shownLabels, (d) => d.name)
+    .join("text")
+    .attr("class", "label")
+    .attr("x", (d) => t.applyX(d.x))
+    .attr("y", (d) => t.applyY(d.y))
+    .attr("font-size", (d) => d.size * k)
+    .text((d) => d.text);
 }
 
 // ---------- 省份名（放大后显示） ----------
@@ -514,17 +616,17 @@ function updateProvinceLabels() {
     return;
   }
   if (!current.set.labels) computeProvinceLabels(current.set);
-  const t = d3.zoomTransform(svg.node());
+  const t = d3.zoomTransform(stage);
   const [x0, x1] = [t.invertX(0), t.invertX(width)];
   const [y0, y1] = [t.invertY(0), t.invertY(height)];
   const hidden = (id) => current.owner[id] === -2;
 
   // 国名占用的区域也要避开
   const placed = [];
-  gLabels.selectAll("text:not(.hidden)").each((d) => {
+  for (const d of shownLabels) {
     const hw = (textEm(d.text) * d.size) / 2;
     placed.push([d.x - hw, d.y - d.size / 2, d.x + hw, d.y + d.size / 2]);
-  });
+  }
 
   const visible = [];
   for (const d of current.set.labels) {
@@ -542,9 +644,9 @@ function updateProvinceLabels() {
     .data(visible, (d) => d.id)
     .join("text")
     .attr("class", "province-label")
-    .attr("x", (d) => d.x)
-    .attr("y", (d) => d.y)
-    .attr("font-size", (d) => d.size)
+    .attr("x", (d) => t.applyX(d.x))
+    .attr("y", (d) => t.applyY(d.y))
+    .attr("font-size", (d) => d.size * zoomK)
     .text((d) => d.text);
 }
 
@@ -579,24 +681,20 @@ async function setYear(year) {
   loading.hidden = true;
   if (current === data) return;
   current = data;
-  gCoast.attr("d", path(data.set.coast));
 
   // 如果原来选中的国家在这个年份还存在，就保持选中
   if (selected && !data.byName.has(selected)) selected = null;
 
   // 新旧两层交叉淡入淡出
   const oldLayer = gLayer;
-  const oldLabels = gLabels;
   gLayer = world.insert("g", ".hover-province").attr("class", "year-layer").attr("opacity", 0);
-  gLabels = world.append("g").attr("class", "labels").attr("opacity", 0);
   drawLayer(gLayer, data);
-  drawLabels(gLabels, data);
+  drawLabels(data);
 
   const t = d3.transition().duration(450);
   gLayer.transition(t).attr("opacity", 1);
-  gLabels.transition(t).attr("opacity", 1);
   oldLayer.transition(t).attr("opacity", 0).remove();
-  oldLabels.transition(t).attr("opacity", 0).remove();
+  gLabels.attr("opacity", 0).transition(t).attr("opacity", 1);
 
   select(selected);
   scheduleLabelUpdate();

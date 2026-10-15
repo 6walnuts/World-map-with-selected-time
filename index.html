@@ -21,7 +21,9 @@
     </header>
 
     <main id="stage">
-      <svg id="map"></svg>
+      <div id="map-wrap"><svg id="map"></svg></div>
+      <div class="paper-overlay" aria-hidden="true"></div>
+      <div class="vignette-overlay" aria-hidden="true"></div>
       <div id="tooltip" hidden></div>
       <div id="loading">载入地图中…</div>
       <div class="zoom-ctl">
