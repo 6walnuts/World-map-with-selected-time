@@ -33,8 +33,10 @@ const admin = JSON.parse(fs.readFileSync(`data/admin_${year}.json`, "utf8"));
 
 // 本地的受限数据（如 CHGIS，见 import-chgis.mjs）存在时优先使用：
 // 手工治所与其中任一治所相距不到 40 公里的视为重复，去掉
+// 设置环境变量 NO_LOCAL=1 可强制只用仓库内的手工数据（生成可公开的版本）
+const USE_LOCAL = !process.env.NO_LOCAL;
 const LOCAL = `data-local/chgis_seats_${year}.json`;
-if (fs.existsSync(LOCAL)) {
+if (USE_LOCAL && fs.existsSync(LOCAL)) {
   const local = JSON.parse(fs.readFileSync(LOCAL, "utf8"));
   const km = ([, lon1, lat1], [, lon2, lat2]) => {
     const r = Math.PI / 180;
@@ -114,6 +116,8 @@ for (const g of admin.groups) {
   }
 }
 
+const allSeats = [...seatsByOwner.values()].flat();
+
 // ---------- Voronoi 划分 ----------
 
 function mapCoords(geom, fn) {
@@ -147,7 +151,7 @@ const features = [];
 // 剩下的部分再按治所 Voronoi 划分。这样藩镇与唐的分界也会沿着真实州界。
 const PGN = `data-local/chgis_pgn_${year}.json`;
 let realUnion = null;
-if (fs.existsSync(PGN)) {
+if (USE_LOCAL && fs.existsSync(PGN)) {
   const land = merge(baseProvinces.map((_, i) => i));
   const real = [];
   for (const f of JSON.parse(fs.readFileSync(PGN, "utf8")).features) {
@@ -158,7 +162,11 @@ if (fs.existsSync(PGN)) {
     if (o < 0) continue;
     const clipped = turf.intersect(turf.featureCollection([f, turf.feature(land)]));
     if (!clipped) continue;
-    real.push({ type: "Feature", properties: { label: f.properties.NAME_CH, o }, geometry: clipped.geometry });
+    // 治所：同名且落在州界内的治所点
+    const seat = allSeats.find((t) => t.name === f.properties.NAME_CH && turf.booleanPointInPolygon([t.lon, t.lat], f));
+    const props = { label: f.properties.NAME_CH, o };
+    if (seat) Object.assign(props, { seatLon: seat.lon, seatLat: seat.lat });
+    real.push({ type: "Feature", properties: props, geometry: clipped.geometry });
   }
   realUnion = turf.union(turf.featureCollection(real));
   features.push(...real);
@@ -179,7 +187,7 @@ for (const [key, ids] of byOwner) {
   const seats = (seatsByOwner.get(o) ?? []).filter((s) => !insideReal(s));
   if (o >= 0 && seats.length >= 2) {
     for (const { seat, geometry } of voronoiSplit(territory, seats)) {
-      features.push({ type: "Feature", properties: { label: seat.name, o }, geometry });
+      features.push({ type: "Feature", properties: { label: seat.name, o, seatLon: seat.lon, seatLat: seat.lat }, geometry });
     }
   } else {
     features.push({

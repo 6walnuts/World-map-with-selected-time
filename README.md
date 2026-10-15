@@ -21,6 +21,19 @@ npm run build    # 打包到 dist/，可直接部署到任意静态托管
 - 首都（金色菱形）与重要城市（圆点）标记，数据在 `public/data/cities.json`，按年份整理
 - URL 记住当前状态，例如 `#1815/Austrian%20Empire`
 
+## 中国视图（800 年）
+
+在 800 年点击大唐或任一藩镇，地图会放大进入中国视图：
+
+- **地形**：真实高程生成的晕渲 + 分层设色底图（`scripts/build-terrain.mjs`，数据为 AWS 上的 Terrarium 高程瓦片）
+- **山川**：主要河流（用唐代名称，如渭水、汾水、汉水）、湖泊、唐代运河（通济渠、邗沟、江南河、永济渠，近似走向）、山脉高原盆地名（`scripts/build-china-geo.mjs`，Natural Earth）
+- **方镇**：州按所属方镇着色，方镇按张国刚的分类分色系：中央直辖、河朔割据型、河朔恭顺型、中原跋扈型、中原防遏型、边疆御边型、东南财源型、羁縻州。数据在 `public/data/tang_800.json`，辖州为近似，节度使只填有把握的，其余显示"待考"
+- **城池**：长安、洛阳为带内城的都城，方镇治所为中型城池，普通州城放大后出现
+- **侧边栏**：唐廷概况、方镇类型图例（点击可在地图上突出显示）、所选方镇的节度使/与朝廷关系/辖州、四夷与邻国的关系
+- **动态**：缓慢飘过的云（系统开启"减少动态效果"时静止）
+
+按 Esc 先取消选择、再退出；切换到其他年份会自动退出。
+
 ## 数据是怎么来的
 
 和 P 社一样，把**几何**和**归属**分开存：
@@ -106,5 +119,6 @@ npm run build    # 打包到 dist/，可直接部署到任意静态托管
 
 - 历史边界：[aourednik/historical-basemaps](https://github.com/aourednik/historical-basemaps)，GPL-3.0（见 `public/data/LICENSE`）。归属表由它派生。
 - 省份底图：[Natural Earth](https://www.naturalearthdata.com/)，公有领域。
+- 中国视图地形：Mapzen Terrain Tiles（AWS Open Data，汇编自 SRTM、GMTED2010、ETOPO1 等）；河流湖泊与地理区域：Natural Earth。
 - 800 年伊斯兰世界区府：al-Ṯurayyā Gazetteer Project, https://github.com/althurayya/althurayya.github.io ，CC BY 4.0（已翻译地名并筛去 800 年尚不存在的城市）。
 - 省份是现代行政区切出来的，形状并非历史上的真实省份；归属精度参差不齐，仅供参考。

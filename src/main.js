@@ -10,6 +10,7 @@ import {
   NEW_WORLD_MAX_LON,
   NOMINAL_OVERLORDS,
 } from "./config.js";
+import { createChina } from "./china.js";
 import "./style.css";
 
 const DATA = import.meta.env.BASE_URL + "data/";
@@ -323,6 +324,7 @@ function resize() {
     drawLayer(gLayer, current);
     drawLabels(current);
   }
+  china.onResize();
 }
 
 // ---------- 缩放平移 ----------
@@ -330,7 +332,7 @@ function resize() {
 // 仿 P 社的手感：滚轮带缓动、以鼠标为中心缩放；WASD / 方向键平移，+/- 缩放。
 // 远看只有国家色块和国名，拉近后逐渐出现省界和省份名。
 
-const MAX_ZOOM = 24;
+const MAX_ZOOM = 60; // 中国视图需要放得更大
 const PROVINCE_LABEL_ZOOM = 4; // 从这个倍数开始显示省份名
 
 // 性能关键：直接改 <g> 的 transform 会让浏览器对几百万字符的路径重新排版，
@@ -380,7 +382,12 @@ function scheduleLabelUpdate() {
   labelFrame = requestAnimationFrame(() => {
     labelFrame = 0;
     renderLabels();
+    const chinaBoxes = china.render(shownLabels.map((d) => {
+      const hw = (textEm(d.text) * d.size) / 2;
+      return [d.x - hw, d.y - d.size / 2, d.x + hw, d.y + d.size / 2];
+    }));
     renderCities();
+    cityBoxes.push(...chinaBoxes);
     updateProvinceLabels();
   });
 }
@@ -440,7 +447,10 @@ let panTimer = null;
 window.addEventListener("keydown", (e) => {
   if (e.target.closest?.("input, textarea")) return;
   const key = e.key.toLowerCase();
-  if (key === "escape") return select(null);
+  if (key === "escape") {
+    if (!china.onEscape()) select(null);
+    return;
+  }
   if (key === "+" || key === "=") return zoomBy(1.5);
   if (key === "-" || key === "_") return zoomBy(1 / 1.5);
   if (!PAN_KEYS[key]) return;
@@ -474,6 +484,15 @@ window.addEventListener("blur", () => {
   held.clear();
   panTimer?.stop();
   panTimer = null;
+});
+
+// ---------- 中国视图（800 年，点击大唐或其藩镇进入） ----------
+const china = createChina({
+  svg, world, stage, stageSel, zoom, projection, path, tooltip, zhName, textEm, DATA,
+  getSize: () => ({ width, height }),
+  getCurrent: () => current,
+  clearCountrySelection: () => select(null),
+  scheduleLabelUpdate: () => scheduleLabelUpdate(),
 });
 
 function zoomToCountry(f) {
@@ -597,6 +616,7 @@ function drawLayer(g, data) {
     })
     .on("click", (event, d) => {
       event.stopPropagation();
+      if (china.onCountryClick(d.properties.name)) return;
       select(d.properties.name);
     });
 
@@ -642,9 +662,9 @@ function renderLabels() {
     return [d.x - hw, d.y - d.size / 2, d.x + hw, d.y + d.size / 2];
   };
 
-  const candidates = labelData
+  const candidates = [...labelData.filter((d) => !china.hidesLabel(d.name)), ...china.labelEntries()]
     .filter((d) => d.size * k >= LABEL_MIN_PX && d.x > x0 && d.x < x1 && d.y > y0 && d.y < y1)
-    .map((d) => ({ ...d, size: Math.min(d.size, LABEL_MAX_PX / k) }))
+    .map((d) => ({ ...d, size: Math.min(d.size, (d.maxPx ?? LABEL_MAX_PX) / k) }))
     .sort((a, b) => b.size - a.size);
 
   const placed = [];
@@ -663,7 +683,7 @@ function renderLabels() {
     const size = LABEL_FALLBACK_PX / k;
     for (const f of current.countries) {
       const p = f.properties;
-      if (shown.has(p.name)) continue;
+      if (shown.has(p.name) || china.hidesLabel(p.name)) continue;
       const [[bx0, by0], [bx1, by1]] = p.screenBounds;
       const rx0 = Math.max(bx0, x0), rx1 = Math.min(bx1, x1);
       const ry0 = Math.max(by0, y0), ry1 = Math.min(by1, y1);
@@ -691,7 +711,7 @@ function renderLabels() {
   gLabels.selectAll("text")
     .data(shownLabels, (d) => d.name)
     .join("text")
-    .attr("class", (d) => "label" + (d.unorganized ? " unorganized" : ""))
+    .attr("class", (d) => "label" + (d.unorganized ? " unorganized" : "") + (d.circuit ? " circuit" : ""))
     .attr("x", (d) => t.applyX(d.x))
     .attr("y", (d) => t.applyY(d.y))
     .attr("font-size", (d) => d.size * k)
@@ -721,6 +741,7 @@ function renderCities() {
   const ordered = [...current.cities].sort((a, b) => b.capital - a.capital);
   for (const c of ordered) {
     if (!c.capital && k < CITY_ZOOM) continue;
+    if (china.hidesCity(c.country)) continue;
     const [mx, my] = projection([c.lon, c.lat]);
     const x = t.applyX(mx);
     const y = t.applyY(my);
@@ -836,6 +857,7 @@ function showTooltip(event, d) {
 
 async function setYear(year) {
   const bm = BOOKMARKS.find((b) => b.year === year) ?? BOOKMARKS[0];
+  china.onYearChange(bm.year);
   d3.selectAll("#bookmarks button").classed("active", (d) => d.year === bm.year);
   document.getElementById("era-year").textContent = bm.year;
   document.getElementById("era-title").textContent = bm.title;
@@ -923,7 +945,9 @@ function select(name, { zoom: doZoom = false } = {}) {
   if (doZoom) zoomToCountry(f);
 }
 
-svg.on("click", () => select(null));
+svg.on("click", () => {
+  if (!china.onBackgroundClick()) select(null);
+});
 document.getElementById("deselect").onclick = () => select(null);
 document.getElementById("play").onclick = () => {
   const toast = document.getElementById("toast");
