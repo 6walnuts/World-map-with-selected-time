@@ -2,3 +2,6 @@ node_modules/
 dist/
 data-src/
 .DS_Store
+
+# 有使用限制、不能公开再分发的数据（如 CHGIS），只放本地
+data-local/

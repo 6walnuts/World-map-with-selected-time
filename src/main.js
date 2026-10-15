@@ -625,35 +625,73 @@ function drawLabels(data) {
   renderLabels();
 }
 
-// 屏幕上字号太小（拥挤）或太大（喧宾夺主）的标签不画；
-// 剩下的按字号从大到小贪心放置，和已放置的标签重叠就不画
+// 国名标签：字号太小（拥挤）的不画，太大的封顶；按字号从大到小贪心放置，重叠就不画。
+// 放大后国家中心常常在屏幕外，此时把国名放到该国在屏幕内可见部分的中间（类似 P 社）。
+const LABEL_MIN_PX = 9;
+const LABEL_MAX_PX = 56;
+const LABEL_FALLBACK_PX = 22;
+
 function renderLabels() {
   const t = d3.zoomTransform(stage);
   const k = t.k;
   const [x0, x1] = [t.invertX(0), t.invertX(width)];
   const [y0, y1] = [t.invertY(0), t.invertY(height)];
+  const overlaps = (box, list) => list.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
+  const boxOf = (d) => {
+    const hw = (textEm(d.text) * d.size) / 2 + 2 / k;
+    return [d.x - hw, d.y - d.size / 2, d.x + hw, d.y + d.size / 2];
+  };
+
   const candidates = labelData
-    .filter((d) => {
-      const px = d.size * k;
-      return px >= 9 && px <= 64 && d.x > x0 && d.x < x1 && d.y > y0 && d.y < y1;
-    })
+    .filter((d) => d.size * k >= LABEL_MIN_PX && d.x > x0 && d.x < x1 && d.y > y0 && d.y < y1)
+    .map((d) => ({ ...d, size: Math.min(d.size, LABEL_MAX_PX / k) }))
     .sort((a, b) => b.size - a.size);
 
   const placed = [];
   shownLabels = [];
+  const shown = new Set();
   for (const d of candidates) {
-    const hw = (textEm(d.text) * d.size) / 2 + 2 / k;
-    const hh = d.size / 2;
-    const box = [d.x - hw, d.y - hh, d.x + hw, d.y + hh];
-    if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+    const box = boxOf(d);
+    if (overlaps(box, placed)) continue;
     placed.push(box);
     shownLabels.push(d);
+    shown.add(d.name);
+  }
+
+  // 补位：屏幕里看得见、但国名锚点不在屏幕内的国家（含部落等未建制地区）
+  if (current && k >= 2) {
+    const size = LABEL_FALLBACK_PX / k;
+    for (const f of current.countries) {
+      const p = f.properties;
+      if (shown.has(p.name)) continue;
+      const [[bx0, by0], [bx1, by1]] = p.screenBounds;
+      const rx0 = Math.max(bx0, x0), rx1 = Math.min(bx1, x1);
+      const ry0 = Math.max(by0, y0), ry1 = Math.min(by1, y1);
+      if (rx1 - rx0 < 80 / k || ry1 - ry0 < 30 / k) continue; // 露出的部分太小
+      // 在可见矩形里由中心向外找一个落在该国境内的点
+      let spot = null;
+      for (const [fx, fy] of [[0.5, 0.5], [0.3, 0.5], [0.7, 0.5], [0.5, 0.3], [0.5, 0.7], [0.3, 0.3], [0.7, 0.7], [0.3, 0.7], [0.7, 0.3]]) {
+        const x = rx0 + (rx1 - rx0) * fx;
+        const y = ry0 + (ry1 - ry0) * fy;
+        const ll = projection.invert([x, y]);
+        if (ll && d3.geoContains(f, ll)) {
+          spot = [x, y];
+          break;
+        }
+      }
+      if (!spot) continue;
+      const d = { name: p.name, text: zhName(p.name), x: spot[0], y: spot[1], size, unorganized: p.unorganized };
+      const box = boxOf(d);
+      if (overlaps(box, placed)) continue;
+      placed.push(box);
+      shownLabels.push(d);
+    }
   }
 
   gLabels.selectAll("text")
     .data(shownLabels, (d) => d.name)
     .join("text")
-    .attr("class", "label")
+    .attr("class", (d) => "label" + (d.unorganized ? " unorganized" : ""))
     .attr("x", (d) => t.applyX(d.x))
     .attr("y", (d) => t.applyY(d.y))
     .attr("font-size", (d) => d.size * k)

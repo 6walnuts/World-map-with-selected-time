@@ -244,6 +244,12 @@ button {
   transition: opacity 0.2s;
 }
 
+.label.unorganized {
+  font-weight: 400;
+  font-style: italic;
+  fill: rgba(30, 20, 8, 0.6);
+}
+
 .label.hidden {
   opacity: 0;
 }
