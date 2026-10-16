@@ -646,14 +646,16 @@ kbd {
 }
 
 /* 侧边栏 */
-#tang-panel .ruler-line {
+#tang-panel .ruler-line,
+#city-panel .ruler-line {
   margin-top: 6px;
   color: var(--gold);
   font-size: 15px;
   letter-spacing: 0.1em;
 }
 
-#tang-panel h3 {
+#tang-panel h3,
+#city-panel h3 {
   margin-top: 20px;
 }
 
@@ -796,7 +798,8 @@ kbd {
 
 /* ---------- 大唐 2.5D 场景 ---------- */
 
-#tang-screen {
+#tang-screen,
+#city-screen {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -807,11 +810,13 @@ kbd {
   transition: opacity 0.45s ease;
 }
 
-#tang-screen.shown {
+#tang-screen.shown,
+#city-screen.shown {
   opacity: 1;
 }
 
-#tang-screen[hidden] {
+#tang-screen[hidden],
+#city-screen[hidden] {
   display: none;
 }
 
@@ -875,24 +880,28 @@ kbd {
   min-height: 0;
 }
 
-#tang-view {
+#tang-view,
+#city-view {
   position: relative;
   overflow: hidden;
   min-height: 0;
 }
 
-#tang-view canvas {
+#tang-view canvas,
+#city-view canvas {
   display: block;
   width: 100%;
   height: 100%;
   cursor: grab;
 }
 
-#tang-view canvas:active {
+#tang-view canvas:active,
+#city-view canvas:active {
   cursor: grabbing;
 }
 
-#tang-labels {
+#tang-labels,
+#city-labels {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -974,7 +983,8 @@ kbd {
   color: #1f5a74;
 }
 
-#tang-tip {
+#tang-tip,
+#city-tip {
   position: absolute;
   pointer-events: none;
   padding: 6px 10px;
@@ -984,24 +994,28 @@ kbd {
   max-width: 280px;
 }
 
-#tang-tip .prov {
+#tang-tip .prov,
+#city-tip .prov {
   display: block;
   color: var(--ink-dim);
   font-size: 12px;
 }
 
-#tang-tip strong {
+#tang-tip strong,
+#city-tip strong {
   display: block;
   color: var(--gold);
 }
 
-#tang-tip .sub {
+#tang-tip .sub,
+#city-tip .sub {
   display: block;
   color: var(--ink-dim);
   font-size: 12px;
 }
 
-#tang-loading {
+#tang-loading,
+#city-loading {
   position: absolute;
   inset: 0;
   display: grid;
@@ -1012,7 +1026,8 @@ kbd {
   background: #1c1610;
 }
 
-#tang-loading[hidden] {
+#tang-loading[hidden],
+#city-loading[hidden] {
   display: none;
 }
 
@@ -1027,7 +1042,8 @@ kbd {
   pointer-events: none;
 }
 
-#tang-panel {
+#tang-panel,
+#city-panel {
   padding: 18px 20px;
   overflow-y: auto;
   background:
@@ -1078,6 +1094,186 @@ kbd {
   }
 
   .tang-hint {
+    display: none;
+  }
+}
+
+/* ---------- 长安城 ---------- */
+
+#city-screen {
+  z-index: 60;
+}
+
+#city-screen .tang-bar {
+  background: linear-gradient(#3d2a18, #23170d);
+}
+
+.cmark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  font: 700 13px var(--serif);
+  color: #2a1a0a;
+  white-space: nowrap;
+  background: rgba(250, 243, 225, 0.94);
+  border: 1px solid #8a6a36;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(40, 24, 8, 0.35);
+  cursor: pointer;
+  will-change: transform;
+}
+
+.cmark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 1px;
+  height: 7px;
+  background: #8a6a36;
+}
+
+.cmark:hover,
+.cmark.sel {
+  background: #fff6dc;
+  border-color: #a2402c;
+  color: #7a1c10;
+  z-index: 3;
+}
+
+.cmark-icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  color: #fff4dc;
+  background: #a2402c;
+  border-radius: 50%;
+}
+
+.cward {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font: 12px var(--serif);
+  letter-spacing: 0.15em;
+  color: rgba(50, 32, 14, 0.85);
+  white-space: nowrap;
+  text-shadow: 0 0 3px rgba(245, 236, 210, 0.95);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cward.gate {
+  font-weight: 700;
+  color: #6b2a18;
+}
+
+#city-toast {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  background: rgba(30, 20, 10, 0.86);
+  border: 1px solid var(--gold-dim);
+  pointer-events: none;
+}
+
+#city-toast[hidden] {
+  display: none;
+}
+
+#city-tour {
+  position: absolute;
+  left: 12px;
+  bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+  padding: 8px 12px;
+  background: rgba(30, 20, 10, 0.86);
+  border: 1px solid var(--gold-dim);
+}
+
+#city-tour strong {
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+#city-tour .tang-btn {
+  white-space: nowrap;
+}
+
+#city-tour .tour-step {
+  font-family: var(--display);
+  color: var(--ink-dim);
+}
+
+#city-tour .tour-hint {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.city-card h2 {
+  margin: 10px 0 4px;
+}
+
+.city-ward {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.city-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.city-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 4px;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(107, 85, 51, 0.35);
+  cursor: pointer;
+}
+
+.city-list li span {
+  font-size: 11px;
+  color: var(--ink-dim);
+  text-align: right;
+}
+
+.city-list li:hover,
+.city-list li.on {
+  color: var(--gold);
+}
+
+.city-credit {
+  margin-top: 18px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+
+.city-credit a {
+  color: var(--gold-dim);
+}
+
+@media (max-width: 760px) {
+  #city-tour .tour-hint {
     display: none;
   }
 }

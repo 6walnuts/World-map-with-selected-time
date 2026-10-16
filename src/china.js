@@ -3,6 +3,7 @@
 import * as d3 from "d3";
 import * as topojson from "topojson-client";
 import { createTang3D } from "./tang3d.js";
+import { createChangan } from "./changan3d.js";
 
 // 属于"唐朝体系"的势力：唐廷直辖与名义上臣属的藩镇
 const FAMILY = new Set(["Tang Empire", "Lulong Circuit", "Chengde Circuit", "Weibo Circuit", "Pinglu Circuit", "Huaixi Circuit"]);
@@ -21,8 +22,11 @@ export function createChina(ctx) {
   let assets = null;
   let entering = false;
 
+  // 第三层：长安城。从大唐场景进入，返回时恢复大唐场景
+  const changan = createChangan({ DATA, textEm, onExit: () => scene3d.resume() });
   const scene3d = createTang3D({
     DATA, zhName, textEm,
+    onEnterCity: () => changan.open(),
     onExit() {
       document.body.classList.remove("tang-open");
       stageSel.transition().duration(reduceMotion ? 0 : 900).ease(d3.easeCubicInOut).call(zoom.transform, d3.zoomIdentity);

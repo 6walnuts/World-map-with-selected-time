@@ -78,6 +78,7 @@
           <span class="tang-era">贞元十六年 · 公元 800 年</span>
         </div>
         <div class="tang-tools">
+          <button id="tang-city" class="tang-btn" title="进入长安城">🏯 长安城</button>
           <button id="tang-reset" class="tang-btn" title="回到全景">⟲ 全景</button>
           <button id="tang-clouds" class="tang-btn" title="显示或隐藏云">☁ 云</button>
         </div>
@@ -90,6 +91,33 @@
           <div class="tang-hint">左键拖动平移 · 右键拖动旋转/俯仰 · 滚轮缩放 · WASD 平移 · Q/E 旋转 · Esc 返回</div>
         </div>
         <aside id="tang-panel" class="china-panel"></aside>
+      </div>
+    </section>
+
+    <!-- 第三层：三维长安城，从大唐场景点击长安进入 -->
+    <section id="city-screen" hidden>
+      <header class="tang-bar">
+        <button id="city-back" class="tang-btn">← 返回大唐</button>
+        <div class="tang-title">
+          <span class="tang-name">长安城</span>
+          <span class="tang-era">贞元十六年 · 西京京兆府</span>
+        </div>
+        <div class="tang-tools">
+          <button id="city-top" class="tang-btn" title="俯视">⊙ 俯视</button>
+          <button id="city-night" class="tang-btn" title="切换昼夜（N）">☾ 夜</button>
+          <button id="city-reset" class="tang-btn" title="回到全景">⟲ 全景</button>
+        </div>
+      </header>
+      <div class="tang-body">
+        <div id="city-view">
+          <div id="city-labels"></div>
+          <div id="city-tip" hidden></div>
+          <div id="city-toast" hidden></div>
+          <div id="city-tour"></div>
+          <div id="city-loading">正在营建长安…</div>
+          <div class="tang-hint">左键拖动平移 · 右键拖动旋转/俯仰 · 滚轮缩放 · N 昼夜 · Esc 返回</div>
+        </div>
+        <aside id="city-panel" class="china-panel"></aside>
       </div>
     </section>
 

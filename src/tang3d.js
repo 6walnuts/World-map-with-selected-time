@@ -11,7 +11,7 @@ const MAJOR_RIVERS = new Set(["长江", "黄河", "金沙江", "通天河"]);
 const CAPITALS = { 京兆府: "长安", 河南府: "洛阳" };
 const SKIRT = 6; // 地形块侧面向下延伸的深度（桌面沙盘效果）
 
-export function createTang3D({ DATA, zhName, textEm, onExit }) {
+export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
   const screen = document.getElementById("tang-screen");
   const view = document.getElementById("tang-view");
   const labelLayer = document.getElementById("tang-labels");
@@ -497,6 +497,9 @@ export function createTang3D({ DATA, zhName, textEm, onExit }) {
   function onClick(e) {
     if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return; // 拖动不算点击
     const hit = groundHit(e.clientX, e.clientY);
+    // 点中长安城：镜头俯冲后进入三维长安城
+    const ca = cities.find((c) => c.name === "长安");
+    if (hit && ca?.pos && Math.hypot(hit[0] - ca.pos.x, hit[1] - ca.pos.z) < ca.size * 1.6) return enterChangan();
     const item = hit && pickAt(hit[0], hit[1]);
     if (!item) return clearSelection();
     if (item.kind === "pref") {
@@ -805,7 +808,7 @@ export function createTang3D({ DATA, zhName, textEm, onExit }) {
   // ---------- 动画循环 ----------
   const lastCam = new THREE.Matrix4();
   function animate() {
-    if (!open) return;
+    if (!open || suspended) return;
     frame = requestAnimationFrame(animate);
     clock.update();
     const dt = Math.min(0.1, clock.getDelta());
@@ -998,7 +1001,7 @@ export function createTang3D({ DATA, zhName, textEm, onExit }) {
   };
   const keys = new Set();
   window.addEventListener("keydown", (e) => {
-    if (!open || e.target.closest?.("input, textarea")) return;
+    if (!open || suspended || e.target.closest?.("input, textarea")) return;
     if (e.key === "Escape") {
       if (selectedCircuit || highlightType) clearSelection();
       else close();
@@ -1010,7 +1013,7 @@ export function createTang3D({ DATA, zhName, textEm, onExit }) {
   window.addEventListener("blur", () => keys.clear());
   // WASD 平移、Q/E 旋转
   const keyPan = () => {
-    if (!open || !keys.size) return;
+    if (!open || suspended || !keys.size) return;
     const dist = camera.position.distanceTo(controls.target);
     const sp = dist * 0.012;
     const az = controls.getAzimuthalAngle();
@@ -1096,7 +1099,34 @@ export function createTang3D({ DATA, zhName, textEm, onExit }) {
     onExit?.();
   }
 
+  // ---------- 进入长安城 ----------
+  let suspended = false;
+  function enterChangan() {
+    const ca = cities.find((c) => c.name === "长安");
+    if (!ca?.pos || !onEnterCity) return;
+    tip.hidden = true;
+    flyTo({ x: ca.pos.x, z: ca.pos.z, dist: 30, polar: 0.55, duration: 1.3 });
+    setTimeout(() => {
+      suspended = true;
+      cancelAnimationFrame(frame);
+      onEnterCity("长安");
+    }, reduceMotion ? 0 : 1250);
+  }
+  document.getElementById("tang-city").onclick = () => enterChangan();
+
+  function resume() {
+    if (!suspended) return;
+    suspended = false;
+    if (open) {
+      const ca = cities.find((c) => c.name === "长安");
+      if (ca?.pos) flyTo({ x: ca.pos.x, z: ca.pos.z, dist: 160, polar: 0.9, duration: 1.6 });
+      clock.update();
+      frame = requestAnimationFrame(animate);
+    }
+  }
+
   return {
+    resume,
     open: openScene,
     close,
     get isOpen() {
