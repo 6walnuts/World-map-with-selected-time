@@ -898,6 +898,12 @@ kbd {
   color: var(--gold);
 }
 
+.tang-btn.on {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(227, 194, 109, 0.18);
+}
+
 .tang-btn.off {
   opacity: 0.5;
 }
@@ -1202,7 +1208,11 @@ kbd {
   color: #6b2a18;
 }
 
-#city-toast {
+#city-toast,
+#tang-toast {
+  max-width: calc(100% - 40px);
+  text-align: center;
+  line-height: 1.6;
   position: absolute;
   top: 14px;
   left: 50%;
@@ -1216,7 +1226,8 @@ kbd {
   pointer-events: none;
 }
 
-#city-toast[hidden] {
+#city-toast[hidden],
+#tang-toast[hidden] {
   display: none;
 }
 

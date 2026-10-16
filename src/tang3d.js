@@ -5,6 +5,7 @@ import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as d3 from "d3";
 import { analyzeTerrain, paintTerrainArt, buildNormalCanvas } from "./terrain-art.js";
+import { createFlows } from "./tang-flow.js";
 
 const WORLD_W = 1000;
 const EXAG = 5; // 高程夸张倍数
@@ -36,6 +37,7 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
   // 地图模式：political 政区 / terrain 山川 / qinglv 青绿山水
   let mapMode = (() => { try { return localStorage.getItem("tang-map-mode") || "political"; } catch { return "political"; } })();
   let tween = null;
+  let flows = null; // 河流流动、漕船、季风与番舶
 
   // ---------- 初始化 three.js ----------
   function initRenderer() {
@@ -417,7 +419,18 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
       const major = MAJOR_RIVERS.has(name);
       if (!major && (r.properties.rank ?? 9) > 6) continue;
       const width = major ? 0.7 : 0.36;
-      const lines = r.geometry.type === "LineString" ? [r.geometry.coordinates] : r.geometry.coordinates;
+      const raw = r.geometry.type === "LineString" ? [r.geometry.coordinates] : r.geometry.coordinates;
+      // 切掉地图范围外的河段，免得水带飘到沙盘外
+      const lines = [];
+      for (const c of raw) {
+        let cur = [];
+        for (const pt of c) {
+          const [x, z] = toWorld(pt[0], pt[1]);
+          if (inside(x, z)) cur.push(pt);
+          else if (cur.length) { lines.push(cur); cur = []; }
+        }
+        if (cur.length > 1) lines.push(cur);
+      }
       for (const line of lines) {
         const pts = [];
         for (let k = 0; k < line.length; k++) {
@@ -916,6 +929,7 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
       if (riverMats[0]) riverMats[0].normalMap.offset.x -= dt * 0.25;
     }
     selLine.material.opacity = 0.55 + 0.4 * Math.sin(performance.now() / 380);
+    flows?.update(dt, dist, view.clientHeight, camera.fov);
     cityMeshes.town.visible = dist < 260;
     renderer.render(scene, camera);
     if (labelsDirty || !lastCam.equals(camera.matrixWorld)) {
@@ -1091,6 +1105,28 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
   // ---------- 顶栏按钮与键盘 ----------
   document.getElementById("tang-back").onclick = () => close();
   document.getElementById("tang-reset").onclick = () => overview(1.2);
+  const WIND = {
+    off: { next: "summer", label: "🌬 季风", toast: null },
+    summer: { next: "winter", label: "🌬 夏季风", toast: "夏季风：东南季风与西南季风自海上吹向大陆，番舶乘风自南海北来，泊广州、泉州、扬州" },
+    winter: { next: "off", label: "🌬 冬季风", toast: "冬季风：寒潮自塞北南下，西北季风转为东南沿海的东北季风，番舶乘风扬帆南归" },
+  };
+  const windBtn = document.getElementById("tang-wind");
+  windBtn.onclick = () => {
+    const mode = WIND[flows?.windMode ?? "off"].next;
+    flows?.setWind(mode);
+    windBtn.textContent = WIND[mode].label;
+    windBtn.classList.toggle("on", mode !== "off");
+    showToast(WIND[mode].toast);
+  };
+  const toastEl = document.getElementById("tang-toast");
+  let toastTimer = 0;
+  function showToast(text) {
+    clearTimeout(toastTimer);
+    toastEl.hidden = !text;
+    if (!text) return;
+    toastEl.textContent = text;
+    toastTimer = setTimeout(() => (toastEl.hidden = true), 6000);
+  }
   const cloudBtn = document.getElementById("tang-clouds");
   cloudBtn.onclick = () => {
     showClouds = !showClouds;
@@ -1145,6 +1181,8 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     if (!terrain) {
       buildTerrain(await loadHeight());
       buildRivers();
+      flows = createFlows({ scene, geo, toWorld, fromWorld, heightAt, inside, reduceMotion });
+      flows.setBounds(WORLD_W, terrain.depth);
     }
     scene.add(hoverLine, selLine);
   }
