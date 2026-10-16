@@ -870,6 +870,34 @@ kbd {
   color: var(--gold);
 }
 
+.seg {
+  display: flex;
+  border: 1px solid var(--gold-dim);
+  border-radius: 2px;
+}
+
+.seg button {
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: none;
+  border-right: 1px solid rgba(166, 138, 74, 0.5);
+  color: var(--ink-dim);
+  letter-spacing: 0.1em;
+}
+
+.seg button:last-child {
+  border-right: none;
+}
+
+.seg button:hover {
+  color: var(--gold);
+}
+
+.seg button.on {
+  background: rgba(227, 194, 109, 0.22);
+  color: var(--gold);
+}
+
 .tang-btn.off {
   opacity: 0.5;
 }

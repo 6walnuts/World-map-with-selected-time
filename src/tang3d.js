@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as d3 from "d3";
+import { analyzeTerrain, paintTerrainArt, buildNormalCanvas } from "./terrain-art.js";
 
 const WORLD_W = 1000;
 const EXAG = 5; // 高程夸张倍数
@@ -20,7 +21,7 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
   const loading = document.getElementById("tang-loading");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let renderer, scene, camera, controls, clock;
+  let renderer, scene, camera, controls, clock, hemi, sun;
   let terrain = null; // 网格、高程等，只构建一次
   let built = null; // china.js 里算好的州 → 方镇数据
   let tang = null;
@@ -32,6 +33,8 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
   let highlightType = null;
   let hoverIndex = null;
   let showClouds = true;
+  // 地图模式：political 政区 / terrain 山川 / qinglv 青绿山水
+  let mapMode = (() => { try { return localStorage.getItem("tang-map-mode") || "political"; } catch { return "political"; } })();
   let tween = null;
 
   // ---------- 初始化 three.js ----------
@@ -55,8 +58,9 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     controls.addEventListener("start", () => (tween = null));
     clock = new THREE.Timer();
 
-    scene.add(new THREE.HemisphereLight("#fff4dc", "#5a4630", 1.35));
-    const sun = new THREE.DirectionalLight("#fff1d6", 1.9);
+    hemi = new THREE.HemisphereLight("#fff4dc", "#5a4630", 1.35);
+    scene.add(hemi);
+    sun = new THREE.DirectionalLight("#fff1d6", 1.9);
     sun.position.set(-500, 700, -400); // 西北方高空，与底图晕渲一致
     scene.add(sun);
 
@@ -145,7 +149,13 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     g.computeVertexNormals();
 
     terrain.texture = new THREE.CanvasTexture(document.createElement("canvas"));
-    terrain.material = new THREE.MeshStandardMaterial({ map: terrain.texture, roughness: 0.93, metalness: 0 });
+    // 法线按全分辨率高程逐像素计算（网格只有一半分辨率），山脊与沟谷更清楚
+    const normalMap = new THREE.CanvasTexture(buildNormalCanvas(hy, elev, W, H, U));
+    normalMap.anisotropy = 8;
+    terrain.material = new THREE.MeshStandardMaterial({
+      map: terrain.texture, roughness: 0.93, metalness: 0,
+      normalMap, normalMapType: THREE.ObjectSpaceNormalMap,
+    });
     terrain.mesh = new THREE.Mesh(g, terrain.material);
     scene.add(terrain.mesh);
 
@@ -177,51 +187,20 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     scene.add(table);
 
     buildWater(depth);
-    terrain.baseCanvas = paintBase();
+    const y2lat = (gy) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * gy) / N))) * 180) / Math.PI;
+    terrain.analysis = analyzeTerrain({
+      elev, W, H,
+      lonOf: (x) => ((meta.gx0 + x + 0.5) / N) * 360 - 180,
+      latOf: (y) => y2lat(meta.gy0 + y + 0.5),
+      metersPerPx: (y) => (156543.03 * Math.cos((y2lat(meta.gy0 + y + 0.5) * Math.PI) / 180)) / 2 ** meta.z,
+    });
+    terrain.bases = {};
   }
 
-  // 底色：分层设色 + 轻度晕渲（立体光照另外再加一层），海面按深浅着色
-  function paintBase() {
-    const { W, H, elev } = terrain;
-    const STOPS = [[0, [214, 204, 160]], [200, [204, 194, 146]], [800, [190, 168, 118]], [1800, [168, 140, 98]], [3500, [146, 118, 88]], [5200, [136, 116, 96]], [6200, [238, 234, 226]]];
-    const tint = (e) => {
-      for (let i = 1; i < STOPS.length; i++) {
-        if (e <= STOPS[i][0]) {
-          const [e0, c0] = STOPS[i - 1], [e1, c1] = STOPS[i];
-          const t = Math.max(0, (e - e0) / (e1 - e0));
-          return c0.map((v, k) => v + (c1[k] - v) * t);
-        }
-      }
-      return STOPS.at(-1)[1];
-    };
-    const c = document.createElement("canvas");
-    c.width = W;
-    c.height = H;
-    const g = c.getContext("2d");
-    const img = g.createImageData(W, H);
-    const res = (156543.03 * Math.cos(0.58)) / 2 ** 6; // 约略的米/像素（北纬 33°），只用于晕渲强度
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const i = y * W + x;
-        const e = elev[i];
-        const o = i * 4;
-        if (e <= 0) {
-          const d = Math.min(1, -e / 2500);
-          img.data[o] = 74 - 34 * d; img.data[o + 1] = 118 - 40 * d; img.data[o + 2] = 128 - 30 * d; img.data[o + 3] = 255;
-          continue;
-        }
-        const ex = (elev[i + (x < W - 1 ? 1 : 0)] - elev[i - (x > 0 ? 1 : 0)]) / (2 * res) * 3;
-        const ez = (elev[i + (y < H - 1 ? W : 0)] - elev[i - (y > 0 ? W : 0)]) / (2 * res) * 3;
-        const shade = Math.max(0, Math.min(1.3, 0.82 + (ex + ez) * 0.25));
-        const col = tint(e);
-        img.data[o] = Math.min(255, col[0] * shade);
-        img.data[o + 1] = Math.min(255, col[1] * shade);
-        img.data[o + 2] = Math.min(255, col[2] * shade);
-        img.data[o + 3] = 255;
-      }
-    }
-    g.putImageData(img, 0, 0);
-    return c;
+  // 底色按画风生成并缓存
+  function baseFor(style) {
+    terrain.bases[style] ??= paintTerrainArt(terrain.analysis, style);
+    return terrain.bases[style];
   }
 
   // ---------- 水面 ----------
@@ -313,62 +292,93 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     const g = c.getContext("2d");
     const f = texScale;
     const path = d3.geoPath(texProjection(f), g);
+    const qinglv = mapMode === "qinglv";
+    const political = mapMode === "political";
     g.imageSmoothingQuality = "high";
-    g.drawImage(terrain.baseCanvas, 0, 0, c.width, c.height);
-
-    // 他国：淡淡一层国色
+    g.globalAlpha = 1;
+    g.drawImage(baseFor(qinglv ? "qinglv" : "real"), 0, 0, c.width, c.height);
     g.lineJoin = "round";
+    g.lineCap = "round";
+    const ink = qinglv ? "#3b2a1a" : "#2e1a0a";
+
+    // 他国：政区模式下淡淡一层国色，其余模式只描国界
     for (const cf of foreignCountries()) {
       if (cf.properties.unorganized) continue;
       g.beginPath();
       path(cf);
-      g.globalAlpha = 0.22;
-      g.fillStyle = cf.properties.color;
-      g.fill();
-      g.globalAlpha = 0.7;
-      g.strokeStyle = "#3a2410";
-      g.lineWidth = 1.4 * f;
+      if (political) {
+        g.globalAlpha = 0.2;
+        g.fillStyle = cf.properties.color;
+        g.fill();
+      }
+      g.globalAlpha = political ? 0.7 : 0.45;
+      g.strokeStyle = ink;
+      g.lineWidth = (political ? 1.4 : 1.1) * f;
+      if (!political) g.setLineDash([3 * f, 2 * f]);
       g.stroke();
+      g.setLineDash([]);
     }
 
-    // 唐朝体系：各州按方镇着色
-    const dimType = (c) => highlightType && c?.type !== highlightType;
+    // 唐朝体系：政区模式按方镇着色；山川与青绿模式只留很淡的色块，让山川露出来
+    const dimType = (cc) => highlightType && cc?.type !== highlightType;
+    const baseAlpha = political ? 0.4 : qinglv ? 0.07 : 0.12;
     for (const pf of built.family) {
       const cc = built.circuitOf.get(pf.properties.index);
+      const highlighted = (highlightType && !dimType(cc)) || (selectedCircuit && cc?.id === selectedCircuit);
       g.beginPath();
       path(pf);
-      g.globalAlpha = dimType(cc) ? 0.1 : selectedCircuit && cc?.id !== selectedCircuit ? 0.3 : 0.48;
+      g.globalAlpha = dimType(cc) ? baseAlpha * 0.25 : selectedCircuit && cc?.id !== selectedCircuit ? baseAlpha * 0.6 : highlighted && !political ? 0.35 : baseAlpha;
       g.fillStyle = cc?.color ?? "#bba";
       g.fill();
-      g.globalAlpha = 0.32;
-      g.strokeStyle = "#3a2410";
-      g.lineWidth = 0.5 * f;
-      g.stroke();
+      if (political) {
+        g.globalAlpha = 0.28;
+        g.strokeStyle = ink;
+        g.lineWidth = 0.5 * f;
+        g.stroke();
+      }
     }
-    g.globalAlpha = 0.85;
-    g.strokeStyle = "#2e1a0a";
-    g.lineWidth = 1.5 * f;
+    g.globalAlpha = political ? 0.85 : 0.55;
+    g.strokeStyle = ink;
+    g.lineWidth = (political ? 1.5 : 1) * f;
     g.beginPath();
     path(built.borderMesh);
     g.stroke();
 
-    // 河湖与运河
-    g.globalAlpha = 0.9;
-    g.strokeStyle = "#3d7590";
-    g.lineCap = "round";
-    for (const r of geo.rivers.features) {
-      g.lineWidth = (MAJOR_RIVERS.has(r.properties.name) ? 1.7 : 1) * f;
-      g.beginPath();
-      path(r);
-      g.stroke();
-    }
-    g.fillStyle = "#5f93a3";
+    // 湖泊
     for (const l of geo.lakes.features) {
       g.beginPath();
       path(l);
+      g.globalAlpha = 1;
+      g.fillStyle = qinglv ? "#b7cfc4" : "#5f97a8";
       g.fill();
+      g.globalAlpha = 0.7;
+      g.strokeStyle = qinglv ? "#5d7f86" : "#e6efe6";
+      g.lineWidth = 0.8 * f;
+      g.stroke();
     }
-    g.strokeStyle = "#255f7d";
+    // 河流：先画浅色河岸，再画河道；黄河用泥黄色
+    const rivers = [...geo.rivers.features].sort((x, y) => (y.properties.rank ?? 9) - (x.properties.rank ?? 9));
+    for (const pass of [0, 1]) {
+      for (const r of rivers) {
+        const major = MAJOR_RIVERS.has(r.properties.name);
+        const w = (major ? 2.1 : 1.1 + Math.max(0, 6 - (r.properties.rank ?? 6)) * 0.12) * f;
+        g.beginPath();
+        path(r);
+        if (pass === 0) {
+          if (qinglv) continue;
+          g.globalAlpha = 0.45;
+          g.strokeStyle = "#e7ecd8";
+          g.lineWidth = w + 1.6 * f;
+        } else {
+          g.globalAlpha = 0.95;
+          g.strokeStyle = qinglv ? "#4f7d8a" : r.properties.name === "黄河" ? "#a98c55" : "#3f86a0";
+          g.lineWidth = qinglv ? w * 0.7 : w;
+        }
+        g.stroke();
+      }
+    }
+    g.globalAlpha = 1;
+    g.strokeStyle = qinglv ? "#4f7d8a" : "#2c6f8c";
     g.lineWidth = 1.3 * f;
     g.setLineDash([4 * f, 2.5 * f]);
     for (const cn of geo.canals) {
@@ -397,6 +407,90 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     g.globalAlpha = 1;
     terrain.texture.needsUpdate = true;
   }
+
+  // ---------- 立体河流：贴着地形的水带，反光并缓缓流动 ----------
+  let riverMats = [];
+  function buildRivers() {
+    const byMat = { huang: [], other: [] };
+    for (const r of geo.rivers.features) {
+      const name = r.properties.name;
+      const major = MAJOR_RIVERS.has(name);
+      if (!major && (r.properties.rank ?? 9) > 6) continue;
+      const width = major ? 0.7 : 0.36;
+      const lines = r.geometry.type === "LineString" ? [r.geometry.coordinates] : r.geometry.coordinates;
+      for (const line of lines) {
+        const pts = [];
+        for (let k = 0; k < line.length; k++) {
+          const p = toWorld(line[k][0], line[k][1]);
+          if (k) {
+            const q = pts.at(-1);
+            const n = Math.ceil(Math.hypot(p[0] - q[0], p[1] - q[1]) / 0.5);
+            for (let t = 1; t < n; t++) pts.push([q[0] + ((p[0] - q[0]) * t) / n, q[1] + ((p[1] - q[1]) * t) / n]);
+          }
+          pts.push(p);
+        }
+        if (pts.length < 2) continue;
+        const pos = [], uv = [], idx = [];
+        let dist = 0;
+        pts.forEach((p, k) => {
+          const a = pts[Math.max(0, k - 1)], b = pts[Math.min(pts.length - 1, k + 1)];
+          const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz) || 1;
+          const nx = (-dz / len) * width / 2, nz = (dx / len) * width / 2;
+          if (k) dist += Math.hypot(p[0] - pts[k - 1][0], p[1] - pts[k - 1][1]);
+          const y = Math.max(0.02, heightAt(p[0], p[1])) + 0.1;
+          pos.push(p[0] + nx, y, p[1] + nz, p[0] - nx, y, p[1] - nz);
+          uv.push(dist * 0.4, 0, dist * 0.4, 1);
+          if (k) {
+            const i = k * 2;
+            idx.push(i - 2, i - 1, i, i - 1, i + 1, i);
+          }
+        });
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+        geom.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+        geom.setIndex(idx);
+        byMat[name === "黄河" ? "huang" : "other"].push(geom);
+      }
+    }
+    const normal = water.material.normalMap.clone();
+    normal.repeat.set(1, 1);
+    normal.needsUpdate = true;
+    const mk = (color) => new THREE.MeshStandardMaterial({
+      color, roughness: 0.25, metalness: 0.1, normalMap: normal, normalScale: new THREE.Vector2(0.5, 0.5),
+      transparent: true, opacity: 0.92, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    });
+    riverMats = [mk("#a3874f"), mk("#3f88a3")];
+    [["huang", 0], ["other", 1]].forEach(([k, m]) => {
+      if (!byMat[k].length) return;
+      const g = mergeGeometries(byMat[k]);
+      g.computeVertexNormals();
+      const mesh = new THREE.Mesh(g, riverMats[m]);
+      mesh.renderOrder = 2;
+      scene.add(mesh);
+    });
+  }
+
+  // ---------- 地图模式 ----------
+  const MODE_LIGHT = {
+    political: { hemi: 1.35, sun: 1.9, water: "#3f7280", waterOpacity: 0.8 },
+    terrain: { hemi: 1.25, sun: 2.2, water: "#3d7891", waterOpacity: 0.72 },
+    qinglv: { hemi: 1.7, sun: 1.2, water: "#9dbcb2", waterOpacity: 0.55 },
+  };
+  function setMapMode(mode) {
+    mapMode = mode;
+    try { localStorage.setItem("tang-map-mode", mode); } catch {}
+    document.querySelectorAll("#tang-mode button").forEach((b) => b.classList.toggle("on", b.dataset.mode === mode));
+    if (!terrain?.texture) return;
+    const L = MODE_LIGHT[mode];
+    hemi.intensity = L.hemi;
+    sun.intensity = L.sun;
+    water.material.color.set(L.water);
+    water.material.opacity = L.waterOpacity;
+    for (const m of riverMats) m.visible = mode !== "qinglv";
+    paintTexture();
+    labelsDirty = true;
+  }
+  document.querySelectorAll("#tang-mode button").forEach((b) => (b.onclick = () => setMapMode(b.dataset.mode)));
 
   function pickAt(x, z) {
     if (!inside(x, z)) return null;
@@ -817,7 +911,10 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     clampTarget();
     const dist = camera.position.distanceTo(controls.target);
     updateClouds(dt, dist);
-    if (!reduceMotion) water.material.normalMap.offset.x += dt * 0.004;
+    if (!reduceMotion) {
+      water.material.normalMap.offset.x += dt * 0.004;
+      if (riverMats[0]) riverMats[0].normalMap.offset.x -= dt * 0.25;
+    }
     selLine.material.opacity = 0.55 + 0.4 * Math.sin(performance.now() / 380);
     cityMeshes.town.visible = dist < 260;
     renderer.render(scene, camera);
@@ -1045,7 +1142,10 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     if (!renderer) initRenderer();
     tang = assets.tang;
     geo = assets.geo;
-    if (!terrain) buildTerrain(await loadHeight());
+    if (!terrain) {
+      buildTerrain(await loadHeight());
+      buildRivers();
+    }
     scene.add(hoverLine, selLine);
   }
 
@@ -1071,7 +1171,7 @@ export function createTang3D({ DATA, zhName, textEm, onExit, onEnterCity }) {
     selectedPref = null;
     highlightType = null;
     selLine.geometry = new THREE.BufferGeometry();
-    paintTexture();
+    setMapMode(mapMode);
     renderPanel();
     resize();
     loading.hidden = true;
