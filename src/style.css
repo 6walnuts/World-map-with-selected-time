@@ -1316,3 +1316,38 @@ kbd {
     display: none;
   }
 }
+
+/* ---------- 大唐地图（MapLibre） ---------- */
+
+#tang-map {
+  position: absolute;
+  inset: 0;
+}
+
+.tang-tint,
+.tang-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 做旧：一层很淡的暖色加四角暗角 */
+.tang-tint {
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(40, 26, 12, 0.32) 100%),
+    rgba(154, 136, 104, 0.05);
+}
+
+#tang-view .maplibregl-ctrl-attrib {
+  font-size: 11px;
+  background: rgba(30, 22, 14, 0.7);
+  color: var(--ink-dim);
+}
+
+#tang-view .maplibregl-ctrl-attrib a {
+  color: var(--gold-dim);
+}
+
+#tang-view .tang-hint {
+  bottom: 34px;
+}

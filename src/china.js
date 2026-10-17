@@ -1,8 +1,8 @@
-// 大唐（800 年）：在世界地图上点击大唐或其藩镇，镜头先推近中国，再切换到独立的 2.5D 场景（tang3d.js）。
-// 本文件负责把省份数据整理成「州 → 方镇」并处理进出；立体地形、城池、云与侧边栏都在 tang3d.js。
+// 大唐（800 年）：在世界地图上点击大唐或其藩镇，镜头先推近中国，再切换到独立的大唐地图界面（tang-map.js）。
+// 本文件负责把省份数据整理成「州 → 方镇」并处理进出；地形、城池、流动效果与侧边栏都在 tang-map.js。
 import * as d3 from "d3";
 import * as topojson from "topojson-client";
-import { createTang3D } from "./tang3d.js";
+import { createTangMap } from "./tang-map.js";
 import { createChangan } from "./changan3d.js";
 
 // 属于"唐朝体系"的势力：唐廷直辖与名义上臣属的藩镇
@@ -24,7 +24,7 @@ export function createChina(ctx) {
 
   // 第三层：长安城。从大唐场景进入，返回时恢复大唐场景
   const changan = createChangan({ DATA, textEm, onExit: () => scene3d.resume() });
-  const scene3d = createTang3D({
+  const scene3d = createTangMap({
     DATA, zhName, textEm,
     onEnterCity: () => changan.open(),
     onExit() {

@@ -2,7 +2,6 @@
 // 两种画风：
 //   real   —— 写实：黄土、农田、江南青绿丘陵、西北草原荒漠、青藏高原、裸岩、雪顶，海面按深浅着色并带浪花
 //   qinglv —— 青绿山水：绢本底色，山脚赭石、山腰石绿、山顶石青，沟谷以墨线勾勒，海面画鱼鳞水纹
-// 另生成一张「物体空间法线贴图」，让立体光照按全分辨率高程计算，山脊沟谷更清楚。
 
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, v) => {
@@ -198,38 +197,6 @@ export function paintTerrainArt(A, style) {
       d[o] = clamp(col[0], 0, 255);
       d[o + 1] = clamp(col[1], 0, 255);
       d[o + 2] = clamp(col[2], 0, 255);
-      d[o + 3] = 255;
-    }
-  }
-  g.putImageData(img, 0, 0);
-  return canvas;
-}
-
-// 物体空间法线贴图：hy 为世界坐标下的高度，U 为每像素的世界单位
-export function buildNormalCanvas(hy, elev, W, H, U) {
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const g = canvas.getContext("2d");
-  const img = g.createImageData(W, H);
-  const d = img.data;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      let nx = 0, ny = 1, nz = 0;
-      if (elev[i] > 0) {
-        const h = (j) => Math.max(0, hy[j]);
-        const dx = (h(i + (x < W - 1 ? 1 : 0)) - h(i - (x > 0 ? 1 : 0))) / (2 * U);
-        const dz = (h(i + (y < H - 1 ? W : 0)) - h(i - (y > 0 ? W : 0))) / (2 * U);
-        const len = Math.hypot(dx, 1, dz);
-        nx = -dx / len;
-        ny = 1 / len;
-        nz = -dz / len;
-      }
-      const o = i * 4;
-      d[o] = (nx * 0.5 + 0.5) * 255;
-      d[o + 1] = (ny * 0.5 + 0.5) * 255;
-      d[o + 2] = (nz * 0.5 + 0.5) * 255;
       d[o + 3] = 255;
     }
   }
